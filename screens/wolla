@@ -1,0 +1,52 @@
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import Icon from "react-native-vector-icons/MaterialIcons";
+import { LinearGradient } from 'expo-linear-gradient';
+
+const QuickTips = () => {
+  const tips = [
+    {
+      icon: "star",
+      title: "Boost Your Profile",
+      description: "Complete all profile sections and maintain high-quality photos",
+      colors: ['#2962ff', '#1565c0']
+    },
+    {
+      icon: "chat",
+      title: "Quick Response Time",
+      description: "Reply to clients within 30 minutes for better visibility",
+      colors: ['#3949ab', '#283593']
+    },
+    {
+      icon: "event",
+      title: "Stay Organized",
+      description: "Keep your calendar updated to avoid booking conflicts",
+      colors: ['#5e35b1', '#4527a0']
+    }
+  ];
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.sectionTitle}>Quick Tips</Text>
+      <View style={styles.tipsContainer}>
+        {tips.map((tip, index) => (
+          <LinearGradient
+            key={index}
+            colors={tip.colors}
+            style={styles.tipCard}
+          >
+            <View style={styles.tipContent}>
+              <View style={styles.iconContainer}>
+                <Icon name={tip.icon} size={24} color={tip.colors[0]} />
+              </View>
+              <View style={styles.textContainer}>
+                <Text style={styles.tipTitle}>{tip.title}</Text>
+                <Text style={styles.tipDescription}>{tip.description}</Text>
+              </View>
+            </View>
+          </LinearGradient>
+        ))}
+      </View>
+    </View>
+  );
+};
