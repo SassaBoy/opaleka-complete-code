@@ -65,8 +65,9 @@ const AdminNotificationsPage = () => {
     try {
       setLoadingProviders(true);
       const response = await axios.get(
-        "http://192.168.8.138:5001/api/auth/pending-providers"
+        "https://service-booking-backend-eb9i.onrender.com/api/auth/pending-providers"
       );
+
       if (response.data.success) {
         setPendingProviders(response.data.providers);
       } else {

@@ -27,8 +27,8 @@ const ServicesSection101 = ({ onServicesChange }) => {
   const fetchData = async () => {
     try {
       const [servicesRes, categoriesRes] = await Promise.all([
-        axios.get("http://192.168.8.138:5001/api/auth/services"),
-        axios.get("http://192.168.8.138:5001/api/auth/categories"),
+        axios.get("https://service-booking-backend-eb9i.onrender.com/api/auth/services"),
+        axios.get("https://service-booking-backend-eb9i.onrender.com/api/auth/categories"),
       ]);
 
       if (servicesRes.data?.success) {

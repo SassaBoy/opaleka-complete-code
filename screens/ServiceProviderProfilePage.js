@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Platform,
 } from "react-native";
 import Carousel from "react-native-reanimated-carousel";
 import { TabView, SceneMap, TabBar } from "react-native-tab-view";
@@ -20,50 +21,148 @@ const SCREEN_WIDTH = Dimensions.get("window").width;
 const PRIMARY_COLOR = "#1a237e";
 
 const ServiceProviderProfilePage = ({ route, navigation }) => {
-  const { name, email, serviceName, reviewCount, averageRating } = route.params || {};
+  // Extract params and ensure they have valid defaults
+  const { name, email, serviceName, reviewCount, averageRating } = route?.params || {};
+  const DEFAULT_IMAGE = "https://service-booking-backend-eb9i.onrender.com/uploads/default-profile.png";
+  const isMounted = useRef(true);
 
-// Debugging to verify params
-  console.log("Received params:", { name, email, serviceName });
-
-  const [provider, setProvider] = useState(null);
-  const [tabIndex, setTabIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
-
+  if (!name || !email) {
+    console.error("Navigation params missing:", route?.params);
+  }
+  
   useEffect(() => {
-    fetchProviderDetails();
+    console.log('ServiceProviderProfilePage mounted with params:', route?.params);
+    return () => {
+      console.log('ServiceProviderProfilePage unmounted');
+      isMounted.current = false;
+    };
   }, []);
 
+  console.log("Received params in Profile Page:", { name, email, serviceName, reviewCount, averageRating });
+
+  const [provider, setProvider] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [tabIndex, setTabIndex] = useState(0);
+  const [error, setError] = useState(null);
+  
+  const [routes] = useState([
+    { key: "first", title: "Services" },
+    { key: "second", title: "Reviews" },
+    { key: "third", title: "Hours" },
+    { key: "fourth", title: "Details" },
+  ]);
+
   useEffect(() => {
-    console.log("Provider state updated:", provider);
+    // Set mounted flag
+    isMounted.current = true;
+    
+    if (!name || !email) {
+      setError("Missing provider details");
+      setLoading(false);
+      return;
+    }
+    fetchProviderDetails();
+    
+    // Cleanup function
+    return () => {
+      isMounted.current = false;
+    };
+  }, [name, email]); // Ensure it runs when params update
+  
+
+  useEffect(() => {
+    if (provider) {
+      console.log("Provider updated:", provider);
+    }
   }, [provider]);
   
+
   const fetchProviderDetails = async () => {
     try {
-      console.log(`Fetching provider details for name: ${name}, email: ${email}`);
-      const response = await axios.get(
-        `http://192.168.8.138:5001/api/auth/providers/details?name=${name}&email=${email}`
-      );
-  
-      if (response.data?.success) {
-        const providerData = response.data.data;
-  
-        // Extract rating and review count from route params
-        setProvider({
-          ...providerData,
-          reviews: route.params?.reviewCount || 0, // Use the reviewCount passed from the previous screen
-          rating: route.params?.averageRating || "0.0", // Use the averageRating passed from the previous screen
-        });
-      } else {
-        console.warn("No provider details found.");
-      }
+        console.log("Fetching provider details for:", name, email);
+        
+        const response = await axios.get(
+            `https://service-booking-backend-eb9i.onrender.com/api/auth/providers/details`,
+            { 
+                params: { name, email },
+                timeout: 15000, // 15 seconds timeout
+            }
+        );
+
+        console.log("API Response:", response.data);
+
+        if (response.data?.success && response.data.data) {
+            const providerData = response.data.data;
+
+            // Validate required fields
+            if (!providerData.name) {
+                console.error("Invalid provider data received:", providerData);
+                if (isMounted.current) setError("Invalid provider details received.");
+                return;
+            }
+
+            // Safely process images array
+            let safeImages = [];
+            try {
+                if (Array.isArray(providerData.images)) {
+                    safeImages = providerData.images
+                        .filter(img => img) // Remove any null/undefined/empty values
+                        .map(img => getImageUrl(img));
+                }
+            } catch (imgErr) {
+                console.error("Error processing images:", imgErr);
+            }
+
+            const finalProvider = {
+                ...providerData,
+                reviews: reviewCount || 0,
+                rating: averageRating || "0.0",
+                images: safeImages.length > 0 
+                    ? safeImages 
+                    : [DEFAULT_IMAGE]
+            };
+            
+            console.log("Setting provider state with:", finalProvider);
+            if (isMounted.current) {
+                setProvider(finalProvider);
+            }
+        } else {
+            console.error("API returned unexpected format:", response.data);
+            if (isMounted.current) {
+                setError("Could not fetch provider details. Unexpected data format.");
+            }
+        }
     } catch (error) {
-      console.error("Error fetching provider details:", error.message);
-      alert("Failed to fetch provider details. Please try again later.");
+        console.error("API Request Failed:", error?.response?.data || error.message);
+        if (isMounted.current) {
+            if (error.code === 'ECONNABORTED') {
+                setError("Request timed out. Please check your internet connection.");
+            } else {
+                setError(error?.response?.data?.message || "Failed to load provider details.");
+            }
+        }
     } finally {
-      setLoading(false);
+        if (isMounted.current) {
+            setLoading(false);
+        }
+    }
+};
+
+
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return DEFAULT_IMAGE;
+    try {
+      if (imagePath.startsWith("http")) return imagePath;
+      
+      // Clean the path more thoroughly
+      const cleanPath = imagePath.replace(/\\/g, "/").replace(/^\/+/, '');
+      return `https://service-booking-backend-eb9i.onrender.com/${cleanPath}`;
+    } catch (err) {
+      console.error("Image URL parsing error:", err);
+      return DEFAULT_IMAGE;
     }
   };
-  
+
   
   const getIconUri = (platform) => {
     switch (platform.toLowerCase()) {
@@ -124,32 +223,36 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
 
   const FirstRoute = () => (
     <ScrollView style={styles.tabContent}>
-      {provider?.services.map((service, index) => (
-        <View key={index} style={styles.serviceCard}>
-          <View style={styles.serviceItem}>
-            <View style={styles.serviceInfo}>
-              <Text style={styles.serviceName}>{service.name}</Text>
-              <Text style={styles.servicePrice}>
-                NAD{service.price} ({service.priceType})
-              </Text>
+      {provider?.services && provider.services.length > 0 ? (
+        provider.services.map((service, index) => (
+          <View key={index} style={styles.serviceCard}>
+            <View style={styles.serviceItem}>
+              <View style={styles.serviceInfo}>
+                <Text style={styles.serviceName}>{service.name}</Text>
+                <Text style={styles.servicePrice}>
+                  NAD{service.price} ({service.priceType})
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.bookServiceButton}
+                onPress={() =>
+                  navigation.navigate("BookingPage", {
+                    serviceName: service.name,
+                    name,
+                    email,
+                    reviewCount: provider?.reviews || 0,
+                    averageRating: provider?.rating || "0.0",
+                  })
+                }
+              >
+                <Text style={styles.bookServiceText}>Book</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={styles.bookServiceButton}
-              onPress={() =>
-                navigation.navigate("BookingPage", {
-                  serviceName: service.name,
-                  name,
-                  email,
-                  reviewCount: provider?.reviews || 0, // Pass the review count
-                  averageRating: provider?.rating || "0.0", // Pass the average rating
-                })
-              }
-            >
-              <Text style={styles.bookServiceText}>Book</Text>
-            </TouchableOpacity>
           </View>
-        </View>
-      ))}
+        ))
+      ) : (
+        <Text style={styles.emptyText}>No services available.</Text>
+      )}
     </ScrollView>
   );
   
@@ -163,8 +266,8 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
               <Image
                 source={{
                   uri: review.userId?.profileImage
-                    ? `http://192.168.8.138:5001/${review.userId.profileImage.replace(/\\/g, "/")}`
-                    : "http://192.168.8.138:5001/uploads/default-profile.png",
+                    ? getImageUrl(review.userId.profileImage)
+                    : DEFAULT_IMAGE,
                 }}
                 style={styles.reviewerAvatar}
               />
@@ -200,18 +303,22 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
 
   const ThirdRoute = () => (
     <ScrollView style={styles.tabContent}>
-      <View style={styles.hoursCard}>
-        {Object.entries(provider?.operatingHours || {}).map(([day, hours]) => (
-          <View key={day} style={styles.hoursRow}>
-            <Text style={styles.day}>{day}</Text>
-            <Text style={styles.hours}>
-              {hours.isClosed
-                ? "Closed"
-                : `${hours.start} - ${hours.end}`}
-            </Text>
-          </View>
-        ))}
-      </View>
+      {provider?.operatingHours && Object.keys(provider.operatingHours).length > 0 ? (
+        <View style={styles.hoursCard}>
+          {Object.entries(provider.operatingHours).map(([day, hours]) => (
+            <View key={day} style={styles.hoursRow}>
+              <Text style={styles.day}>{day}</Text>
+              <Text style={styles.hours}>
+                {hours && hours.isClosed
+                  ? "Closed"
+                  : hours ? `${hours.start} - ${hours.end}` : "Not specified"}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : (
+        <Text style={styles.emptyText}>No operating hours available.</Text>
+      )}
     </ScrollView>
   );
 
@@ -236,32 +343,32 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Address</Text>
-          <Text style={styles.detailText}>{provider?.address}</Text>
+          <Text style={styles.detailText}>{provider?.address || "N/A"}</Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Phone</Text>
-          <Text style={styles.detailText}>{provider?.phone}</Text>
+          <Text style={styles.detailText}>{provider?.phone || "N/A"}</Text>
         </View>
-        <View style={styles.socialLinksContainer}>
-  {Object.entries(provider?.socialLinks || {}).map(([platform, url], index) =>
-    url ? (
-      <TouchableOpacity
-        key={index}
-        style={styles.socialIcon}
-        onPress={() => handleSocialLinkPress(url)} // Use the normalized handler
-      >
-        <Image
-          source={{
-            uri: getIconUri(platform), // Dynamically fetch the correct icon for the platform
-          }}
-          style={styles.socialIconImage}
-        />
-      </TouchableOpacity>
-    ) : null
-  )}
-</View>
-
-
+        {provider?.socialLinks && Object.values(provider.socialLinks).some(link => link) && (
+          <View style={styles.socialLinksContainer}>
+            {Object.entries(provider.socialLinks).map(([platform, url], index) =>
+              url ? (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.socialIcon}
+                  onPress={() => handleSocialLinkPress(url)}
+                >
+                  <Image
+                    source={{
+                      uri: getIconUri(platform),
+                    }}
+                    style={styles.socialIconImage}
+                  />
+                </TouchableOpacity>
+              ) : null
+            )}
+          </View>
+        )}
       </View>
     </ScrollView>
   );
@@ -289,92 +396,155 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={PRIMARY_COLOR} />
+        <Text style={styles.loadingText}>Loading provider details...</Text>
       </View>
     );
   }
-
+  
+  
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorTitle}>Something went wrong</Text>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity 
+          style={styles.retryButton}
+          onPress={() => {
+            setError(null);
+            setLoading(true);
+            fetchProviderDetails();
+          }}
+        >
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.retryButton, {marginTop: 12, backgroundColor: '#757575'}]}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.retryButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+  
+  // Prevent blank screen if provider is null
+  if (!provider || Object.keys(provider).length === 0) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorTitle}>Provider Not Found</Text>
+        <Text style={styles.errorText}>No provider details found.</Text>
+        <TouchableOpacity 
+          style={styles.retryButton}
+          onPress={() => {
+            setError(null);
+            setLoading(true);
+            fetchProviderDetails();
+          }}
+        >
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.retryButton, {marginTop: 12, backgroundColor: '#757575'}]}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.retryButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+  
+  // Extract this renderCarouselItem function outside the render path
+  const renderCarouselItem = ({ item }) => (
+    <View style={styles.carouselImageContainer}>
+      <Image
+        source={{
+          uri: item || DEFAULT_IMAGE
+        }}
+        style={styles.carouselImage}
+        resizeMode="cover"
+      />
+    </View>
+  );
+  
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1a237e" />
       <View style={styles.header}>
-        <Carousel
-          loop
-          width={SCREEN_WIDTH}
-          height={300}
-          data={provider?.images || []}
-          renderItem={({ item }) => (
-            <Image
-              source={{
-                uri: item.startsWith("http")
-                  ? item
-                  : `http://192.168.8.138:5001/${item}`,
-              }}
-              style={styles.carouselImage}
-              resizeMode="cover"
-            />
-          )}
-          autoPlay
-          autoPlayInterval={3000}
-        />
-   <View style={styles.headerOverlay}>
-   <View style={styles.ratingContainer}>
-  <Text style={styles.rating}>★ {provider?.rating || "0.0"}</Text>
-  <Text style={styles.reviewCount}>
-    {provider?.reviews || 0} {provider?.reviews === 1 ? "review" : "reviews"}
-  </Text>
-</View>
+        {provider?.images?.length > 0 ? (
+          <Carousel
+            loop
+            width={SCREEN_WIDTH}
+            height={300}
+            data={[...provider.images]} // Create a new array to avoid reactive issues
+            renderItem={renderCarouselItem} // Use the extracted function
+            autoPlay={provider.images.length > 1} // Explicit boolean
+            autoPlayInterval={3000}
+            mode="parallax"
+            modeConfig={{
+              parallaxScrollingScale: 0.9,
+              parallaxScrollingOffset: 50,
+            }}
+          />
+        ) : (
+          <Image
+            source={{ uri: DEFAULT_IMAGE }}
+            style={styles.carouselImage}
+            resizeMode="cover"
+          />
+        )}
 
-</View>
-
+        <View style={styles.headerOverlay}>
+          <View style={styles.ratingContainer}>
+            <Text style={styles.rating}>★ {provider?.rating || "0.0"}</Text>
+            <Text style={styles.reviewCount}>
+              {provider?.reviews || 0} {provider?.reviews === 1 ? "review" : "reviews"}
+            </Text>
+          </View>
+        </View>
       </View>
 
       <View style={styles.businessInfo}>
-  <View style={styles.titleRow}>
-    <Text style={styles.businessName}>{provider?.name}</Text>
-    {provider?.verified && (
-      <Image
-        source={{
-          uri: "https://www.pngmart.com/files/12/Instagram-Verified-Badge-PNG-Image.png",
-        }}
-        style={styles.verifiedBadge}
-      />
-    )}
-  </View>
-  <Text style={styles.address}>{provider?.businessName || "Business name not available"}</Text>
-</View>
+        <View style={styles.titleRow}>
+          <Text style={styles.businessName}>{provider?.name}</Text>
+          {provider?.verified && (
+            <Image
+              source={{
+                uri: "https://www.pngmart.com/files/12/Instagram-Verified-Badge-PNG-Image.png",
+              }}
+              style={styles.verifiedBadge}
+            />
+          )}
+        </View>
+        <Text style={styles.address}>{provider?.businessName || "Business name not available"}</Text>
+      </View>
 
       <TabView
         navigationState={{
           index: tabIndex,
-          routes: [
-            { key: "first", title: "Services" },
-            { key: "second", title: "Reviews" },
-            { key: "third", title: "Hours" },
-            { key: "fourth", title: "Details" },
-          ],
+          routes,
         }}
         renderScene={renderScene}
         onIndexChange={setTabIndex}
         initialLayout={{ width: SCREEN_WIDTH }}
         renderTabBar={renderTabBar}
         style={styles.tabView}
+        lazy={true} // Add this to lazy load tabs
+        lazyPreloadDistance={1} // Preload only adjacent tabs
       />
-
-<TouchableOpacity
-  style={styles.bookButton}
-  onPress={() =>
-    navigation.navigate("BookingPage", {
-      serviceName,
-      name,
-      email,
-      reviewCount: provider?.reviews || 0, // Pass the review count
-      averageRating: provider?.rating || "0.0", // Pass the average rating
-    })
-  }
->
-  <Text style={styles.bookButtonText}>Book Appointment</Text>
-</TouchableOpacity>
-
+      <TouchableOpacity
+        style={styles.bookButton}
+        onPress={() =>
+          navigation.navigate("BookingPage", {
+            serviceName,
+            name,
+            email,
+            reviewCount: provider?.reviews || 0, // Pass the review count
+            averageRating: provider?.rating || "0.0", // Pass the average rating
+          })
+        }
+      >
+        <Text style={styles.bookButtonText}>Book Appointment</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -532,61 +702,60 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-reviewCard: {
-  backgroundColor: "#ffffff",
-  borderRadius: 16,
-  padding: 16,
-  marginBottom: 16,
-  shadowColor: "#000",
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 6,
-  elevation: 3,
-},
-reviewHeader: {
-  flexDirection: "row",
-  alignItems: "center",
-  marginBottom: 12,
-},
-reviewerAvatar: {
-  width: 48,
-  height: 48,
-  borderRadius: 24,
-  marginRight: 12,
-},
-reviewerInfo: {
-  flex: 1,
-},
-reviewUser: {
-  fontSize: 16,
-  fontWeight: "600",
-  color: "#212121",
-},
-reviewDate: {
-  fontSize: 14,
-  color: "#757575",
-  marginTop: 2,
-},
-starsContainer: {
-  flexDirection: "row",
-  marginTop: 4,
-},
-star: {
-  fontSize: 18,
-  marginRight: 2,
-},
-reviewText: {
-  fontSize: 14,
-  color: "#424242",
-  lineHeight: 20,
-},
-emptyText: {
-  fontSize: 16,
-  color: "#757575",
-  textAlign: "center",
-  marginTop: 16,
-},
-
+  reviewCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  reviewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  reviewerAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: 12,
+  },
+  reviewerInfo: {
+    flex: 1,
+  },
+  reviewUser: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#212121",
+  },
+  reviewDate: {
+    fontSize: 14,
+    color: "#757575",
+    marginTop: 2,
+  },
+  starsContainer: {
+    flexDirection: "row",
+    marginTop: 4,
+  },
+  star: {
+    fontSize: 18,
+    marginRight: 2,
+  },
+  reviewText: {
+    fontSize: 14,
+    color: "#424242",
+    lineHeight: 20,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: "#757575",
+    textAlign: "center",
+    marginTop: 16,
+  },
   hoursCard: {
     backgroundColor: '#ffffff',
     borderRadius: 16,
@@ -698,8 +867,54 @@ emptyText: {
     color: '#757575',
     fontWeight: '500',
   },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#F8F9FF',
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FF3B30',
+    marginBottom: 8,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#424242',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: PRIMARY_COLOR,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  carouselImageContainer: {
+    width: SCREEN_WIDTH,
+    height: 300,
+    backgroundColor: '#F0F0F0',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FF', // Light background for contrast
+  },
+  loadingText: {
+    marginTop: 15,
+    fontSize: 16,
+    color: "#424242", 
+    fontWeight: "500",
+    textAlign: "center",
+  },
 });
-
-
 
 export default ServiceProviderProfilePage;

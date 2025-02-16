@@ -7,11 +7,19 @@ const LandingScreen = ({ navigation }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current; // Fade-in animation
   const scaleAnim = useRef(new Animated.Value(0.5)).current; // Scaling animation
 
+
+  useEffect(() => {
+    SplashScreen.preventAutoHideAsync(); 
+  }, []);
+  
   useEffect(() => {
     const prepare = async () => {
       try {
         // Prevent the splash screen from auto-hiding
-        await SplashScreen.preventAutoHideAsync();
+        setTimeout(async () => {
+          await SplashScreen.hideAsync(); // Hide splash AFTER navigation starts
+        }, 500);
+        
 
         // Run fade-in and scaling animations simultaneously
         Animated.parallel([

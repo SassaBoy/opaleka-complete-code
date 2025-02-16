@@ -77,7 +77,7 @@ const UploadDocumentsScreen = ({ navigation }) => {
       });
 
       const response = await axios.post(
-        "http://192.168.8.138:5001/api/auth/upload-documents",
+        "https://service-booking-backend-eb9i.onrender.com/api/auth/upload-documents",
         formData,
         {
           headers: {

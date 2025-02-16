@@ -46,57 +46,62 @@ const ServiceProvidersPage = ({ route }) => {
     ]).start();
   }, []);
 
-  const fetchProviders = async () => {
-    try {
-      const response = await axios.get(
-        `http://192.168.8.138:5001/api/auth/providers?serviceName=${serviceName}`
-      );
-      
-      if (response.data?.success) {
-        console.log("Providers:", response.data.providers);
-  
-        const updatedProviders = await Promise.all(
-          response.data.providers.map(async (provider) => {
-            console.log("Current Provider ID:", provider.id);
-  
-            try {
-              const reviewDetailsResponse = await axios.get(
-                `http://192.168.8.138:5001/api/reviews/provider/${provider.id}/details`
-              );
-              
-              console.log("Review Details Response:", reviewDetailsResponse.data);
-  
-              const { reviewCount, averageRating } = reviewDetailsResponse.data.data;
-              console.log("Review Count:", reviewCount, "Average Rating:", averageRating);
-  
-              return {
-                ...provider,
-                averageRating: averageRating.toFixed(1),
-                reviewCount
-              };
-            } catch (error) {
-              console.error(
-                `Error fetching review details for provider ${provider.name}:`,
-                error.response?.data || error.message
-              );
-              return {
-                ...provider,
-                averageRating: "0.0",
-                reviewCount: 0
-              };
-            }
-          })
-        );
-  
-        setServiceProviders(updatedProviders);
+  // Client-side fetch function
+const fetchProviders = async () => {
+  try {
+    setLoading(true);
+    
+    const userLocation = await AsyncStorage.getItem("userLocation");
+    
+    const response = await axios.get(
+      `https://service-booking-backend-eb9i.onrender.com/api/auth/providers`,
+      {
+        params: {
+          serviceName,
+          location: userLocation
+        }
       }
-    } catch (error) {
-      console.error("Error fetching providers:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
+    );
+
+    // Handle the response regardless of whether providers were found
+    const providers = response.data.providers || [];
+    
+    // Fetch review details for each provider
+    const updatedProviders = await Promise.all(
+      providers.map(async (provider) => {
+        try {
+          const reviewDetailsResponse = await axios.get(
+            `https://service-booking-backend-eb9i.onrender.com/api/reviews/provider/${provider.id}/details`
+          );
+          
+          const { reviewCount, averageRating } = reviewDetailsResponse.data.data;
+          
+          return {
+            ...provider,
+            averageRating: averageRating.toFixed(1),
+            reviewCount
+          };
+        } catch (error) {
+          console.error(`Error fetching reviews for provider ${provider.name}:`, error);
+          return {
+            ...provider,
+            averageRating: "0.0",
+            reviewCount: 0
+          };
+        }
+      })
+    );
+
+    setServiceProviders(updatedProviders);
+    
+  } catch (error) {
+    console.error("Error fetching providers:", error);
+    // Set empty array instead of leaving previous state
+    setServiceProviders([]);
+  } finally {
+    setLoading(false);
+  }
+};
   
   const filteredProviders = serviceProviders.filter((provider) =>
     provider.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -104,13 +109,22 @@ const ServiceProvidersPage = ({ route }) => {
 
   const handleProviderClick = (provider) => {
     setSelectedId(provider.id);
+  
+    console.log("Navigating with params:", {
+      serviceName,
+      name: provider.name,
+      email: provider.email,
+      reviewCount: provider.reviewCount,
+      averageRating: provider.averageRating,
+    });
+  
     setTimeout(() => {
       navigation.navigate("ServiceProviderProfilePage", {
         serviceName,
         name: provider.name,
         email: provider.email,
-        averageRating: provider.averageRating, // Pass average rating
-        reviewCount: provider.reviewCount, 
+        reviewCount: provider.reviewCount,
+        averageRating: provider.averageRating,
       });
       setSelectedId(null);
     }, 200);
@@ -133,7 +147,7 @@ const ServiceProvidersPage = ({ route }) => {
           <Image
             source={{
               uri: item.profileImage
-                ? `http://192.168.8.138:5001/${item.profileImage}`
+                ? `https://service-booking-backend-eb9i.onrender.com/${item.profileImage}`
                 : "https://via.placeholder.com/150",
             }}
             style={styles.providerImage}

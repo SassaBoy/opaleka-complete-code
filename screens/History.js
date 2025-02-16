@@ -49,9 +49,9 @@ const HistoryPage = ({ navigation }) => {
     try {
       const token = await AsyncStorage.getItem('authToken');
       const endpoint = {
-        all: 'http://192.168.8.138:5001/api/book/history/all',
-        completed: 'http://192.168.8.138:5001/api/book/history/completed',
-        rejected: 'http://192.168.8.138:5001/api/book/history/rejected',
+        all: 'https://service-booking-backend-eb9i.onrender.com/api/book/history/all',
+        completed: 'https://service-booking-backend-eb9i.onrender.com/api/book/history/completed',
+        rejected: 'https://service-booking-backend-eb9i.onrender.com/api/book/history/rejected',
       }[status];
   
       const response = await axios.get(endpoint, {
@@ -117,7 +117,7 @@ const HistoryPage = ({ navigation }) => {
             try {
               const token = await AsyncStorage.getItem('authToken');
               const response = await axios.delete(
-                `http://192.168.8.138:5001/api/book/completed/${id}`,
+                `https://service-booking-backend-eb9i.onrender.com/api/book/completed/${id}`,
                 { headers: { Authorization: `Bearer ${token}` } }
               );
   
@@ -169,8 +169,8 @@ const HistoryPage = ({ navigation }) => {
   <Image
     source={{
       uri: item?.providerId?.profileImage
-        ? `http://192.168.8.138:5001/${item.providerId.profileImage.replace(/\\/g, '/')}`
-        : 'http://192.168.8.138:5001/uploads/default-profile.png',
+        ? `https://service-booking-backend-eb9i.onrender.com/${item.providerId.profileImage.replace(/\\/g, '/')}`
+        : 'https://service-booking-backend-eb9i.onrender.com/uploads/default-profile.png',
     }}
     style={styles.providerImage}
     defaultSource={require('../assets/default-profile.png')}
@@ -323,7 +323,7 @@ ListEmptyComponent={() => (
         <Image
           source={{
             uri: selectedService?.providerId?.profileImage
-              ? `http://192.168.8.138:5001/${selectedService.providerId.profileImage.replace(/\\/g, '/')}`
+              ? `https://service-booking-backend-eb9i.onrender.com/${selectedService.providerId.profileImage.replace(/\\/g, '/')}`
               : 'https://via.placeholder.com/50',
           }}
           style={styles.providerImage}

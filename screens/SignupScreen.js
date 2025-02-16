@@ -129,7 +129,7 @@ const SignupScreen = ({ route, navigation }) => {
   
     try {
       const response = await axios.post(
-        "http://192.168.8.138:5001/api/auth/register/" + role,
+        "https://service-booking-backend-eb9i.onrender.com/api/auth/register/" + role,
         formData,
         {
           headers: {

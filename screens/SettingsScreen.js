@@ -22,7 +22,7 @@ export default function SettingsScreen({ navigation }) {
       }
 
       const response = await fetch(
-        `http://192.168.8.138:5001/api/auth/user-details`,
+        `https://service-booking-backend-eb9i.onrender.com/api/auth/user-details`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -142,7 +142,7 @@ export default function SettingsScreen({ navigation }) {
                 try {
                   const token = await AsyncStorage.getItem("authToken");
                   const response = await fetch(
-                    `http://192.168.8.138:5001/api/auth/delete-account`,
+                    `https://service-booking-backend-eb9i.onrender.com/api/auth/delete-account`,
                     {
                       method: "DELETE",
                       headers: {

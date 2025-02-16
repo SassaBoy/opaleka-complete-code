@@ -65,6 +65,7 @@ const CompleteProfileScreen = ({ route, navigation }) => {
     "Tsumeb",
     "Mariental",
     "Keetmanshoop",
+    "Okahandja",
   ];
 
   const isFormValid = () => {
@@ -145,7 +146,7 @@ const CompleteProfileScreen = ({ route, navigation }) => {
     try {
       // Make API call to complete profile
       const response = await axios.post(
-        "http://192.168.8.138:5001/api/auth/complete-profile",
+        "https://service-booking-backend-eb9i.onrender.com/api/auth/complete-profile",
         profileData,
         {
           headers: {
@@ -159,7 +160,7 @@ const CompleteProfileScreen = ({ route, navigation }) => {
       if (customServices.length > 0) {
         await Promise.all(
           customServices.map((service) =>
-            axios.post("http://192.168.8.138:5001/api/auth/custom-service", {
+            axios.post("https://service-booking-backend-eb9i.onrender.com/api/auth/custom-service", {
               name: service.name,
               category: service.category,
               description: service.description,

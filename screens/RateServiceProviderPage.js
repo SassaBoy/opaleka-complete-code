@@ -52,7 +52,7 @@ const RateServiceProviderPage = ({ navigation, route }) => {
       }
 
       const response = await axios.post(
-        "http://192.168.8.138:5001/api/reviews/submit",
+        "https://service-booking-backend-eb9i.onrender.com/api/reviews/submit",
         { bookingId, rating, review: feedback },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -87,7 +87,7 @@ const RateServiceProviderPage = ({ navigation, route }) => {
   
       // Send the request to the server to skip the review
       const response = await axios.post(
-        `http://192.168.8.138:5001/api/reviews/skip`,
+        `https://service-booking-backend-eb9i.onrender.com/api/reviews/skip`,
         { bookingId }, // Pass the bookingId to identify the specific booking
         { headers: { Authorization: `Bearer ${token}` } } // Pass the token in the headers
       );
@@ -149,7 +149,7 @@ const RateServiceProviderPage = ({ navigation, route }) => {
           source={{
             uri: avatar && avatar.startsWith("http")
               ? avatar
-              : `http://192.168.8.138:5001/${avatar.replace(/\\/g, "/") || "uploads/default-profile.png"}`,
+              : `https://service-booking-backend-eb9i.onrender.com/${avatar.replace(/\\/g, "/") || "uploads/default-profile.png"}`,
           }}
           style={styles.avatar}
         />

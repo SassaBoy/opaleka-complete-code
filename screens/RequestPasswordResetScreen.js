@@ -25,7 +25,7 @@ const RequestPasswordResetScreen = ({ navigation }) => {
 
     setLoading(true);
     try {
-      const response = await axios.post("http://192.168.8.138:5001/api/auth/forgot-password", { email });
+      const response = await axios.post("https://service-booking-backend-eb9i.onrender.com/api/auth/forgot-password", { email });
 
       // Show success toast
       Toast.show({

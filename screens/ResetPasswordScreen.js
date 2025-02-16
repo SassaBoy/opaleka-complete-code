@@ -77,7 +77,7 @@ const ResetPasswordScreen = ({ route, navigation }) => {
     setLoading(true);
 
     try {
-      const response = await axios.post("http://192.168.8.138:5001/api/auth/reset-password", {
+      const response = await axios.post("https://service-booking-backend-eb9i.onrender.com/api/auth/reset-password", {
         email,
         otp,
         newPassword,

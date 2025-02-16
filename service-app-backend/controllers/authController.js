@@ -1485,78 +1485,82 @@ exports.getCategories = async (req, res) => {
 
 exports.getVerifiedProviders = async (req, res) => {
   try {
-    const { serviceName } = req.query; // Extract service name from query parameters
+    const { serviceName, location } = req.query;
 
     if (!serviceName) {
       return res.status(400).json({
         success: false,
-        message: "Service name is required.",
+        message: "Service name is required."
       });
     }
 
-    // Query for verified providers with Free or Paid payment status
+    // Query for verified providers
     const verifiedProviders = await ProviderDetails.find({
       verificationStatus: "Verified",
-      paymentStatus: { $in: ["Free", "Paid"] },
+      $or: [
+        { paymentStatus: "Free" },
+        { paymentStatus: "Paid", paidAmount: { $gt: 0 } }
+      ],
     }).populate({
       path: "userId",
       model: "User",
-      select: "name profileImage email", // Select necessary fields from User
+      select: "name profileImage email"
     });
 
-    // Fetch corresponding CompleteProfile records for providers
+    // Fetch corresponding CompleteProfile records
     const completeProfiles = await CompleteProfile.find({
-      userId: { $in: verifiedProviders.map((provider) => provider.userId._id) },
-      "services.name": serviceName, // Match the specific service name
+      userId: { $in: verifiedProviders.map(provider => provider.userId._id) },
+      "services.name": serviceName
     });
 
-    // Map userId to CompleteProfile for easy lookup
     const profileMap = completeProfiles.reduce((map, profile) => {
       map[profile.userId.toString()] = {
-        businessAddress: profile.businessAddress,
-        description: profile.description, // Include description
+        businessAddress: profile.businessAddress || "Address not provided",
+        description: profile.description || "No description available.",
+        town: profile.town || null
       };
       return map;
     }, {});
 
-    // Filter providers based on services in CompleteProfile
-    const filteredProviders = verifiedProviders.filter((provider) =>
-      profileMap[provider.userId._id.toString()]
-    );
+    // Filter providers based on location
+    const filteredProviders = verifiedProviders.filter(provider => {
+      const profile = profileMap[provider.userId._id.toString()];
+      if (!profile) return false;
+      
+      if (location && profile.town) {
+        return profile.town.toLowerCase().includes(location.toLowerCase());
+      }
+      return true;
+    });
 
-    if (filteredProviders.length === 0) {
-      return res.status(404).json({
-        success: true,
-        message: "No providers found offering the specified service.",
-        providers: [],
-      });
-    }
-
-    // Format the response to include required fields
-    const formattedProviders = filteredProviders.map((provider) => {
+    // Always return a 200 status with providers array (empty if none found)
+    const formattedProviders = filteredProviders.map(provider => {
       const profile = profileMap[provider.userId._id.toString()] || {};
       return {
-        id: provider.userId._id, // Ensure this corresponds to the correct User ID
+        id: provider.userId._id,
         name: provider.userId.name,
-        profileImage: provider.userId.profileImage,
+        profileImage: provider.userId.profileImage || "default-profile.png",
         email: provider.userId.email,
-        businessAddress: profile.businessAddress || "Address not provided",
-        rating: 0, // Default rating to 0
-        reviews: 0, // Default reviews to 0
-        description: profile.description || "No description available.", // Use DB description or default
+        businessAddress: profile.businessAddress,
+        description: profile.description,
+        town: profile.town || "No location specified",
+        rating: 0,
+        reviews: 0
       };
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "Verified providers retrieved successfully.",
-      providers: formattedProviders,
+      message: filteredProviders.length ? "Providers retrieved successfully." : "No providers found.",
+      providers: formattedProviders
     });
+
   } catch (error) {
     console.error("Error fetching verified providers:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to fetch verified providers.",
+      error: error.message
     });
   }
 };

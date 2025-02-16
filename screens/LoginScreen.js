@@ -43,7 +43,7 @@ const LoginScreen = ({ route, navigation }) => {
   
     try {
       // Make the API request to login
-      const response = await axios.post("http://192.168.8.138:5001/api/auth/login", {
+      const response = await axios.post("https://service-booking-backend-eb9i.onrender.com/api/auth/login", {
         email,
         password,
       });

@@ -11,6 +11,7 @@ import {
   Alert,
   Modal,
   Image,
+  Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -32,6 +33,8 @@ const ViewBookingsPage = ({ navigation }) => {
   const fetchBookings = async () => {
     try {
       setLoading(true);
+      setBookings([]); // Prevent UI from going blank while loading
+      
       const token = await AsyncStorage.getItem('authToken');
       
       if (!token) {
@@ -39,7 +42,7 @@ const ViewBookingsPage = ({ navigation }) => {
         return navigation.navigate('Login');
       }
 
-      const endpoint = `http://192.168.8.138:5001/api/book/provider/bookings/${selectedTab.toLowerCase()}`;
+      const endpoint = `https://service-booking-backend-eb9i.onrender.com/api/book/provider/bookings/${selectedTab.toLowerCase()}`;
       
       const response = await axios.get(endpoint, {
         headers: { Authorization: `Bearer ${token}` },
@@ -56,7 +59,7 @@ const ViewBookingsPage = ({ navigation }) => {
       }
     } catch (error) {
       console.error(`Error fetching ${selectedTab} bookings:`, error.message);
-      Alert.alert('Error', 'Unable to load bookings. Please try again.');
+      Alert.alert('Unable to load bookings. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -80,7 +83,7 @@ const ViewBookingsPage = ({ navigation }) => {
             try {
               const token = await AsyncStorage.getItem('authToken');
               const response = await axios.post(
-                `http://192.168.8.138:5001/api/book/reject/${bookingId}`,
+                `https://service-booking-backend-eb9i.onrender.com/api/book/reject/${bookingId}`,
                 {},
                 { headers: { Authorization: `Bearer ${token}` } }
               );
@@ -108,9 +111,11 @@ const ViewBookingsPage = ({ navigation }) => {
   const handleAcceptBooking = async (bookingId) => {
     try {
       setLoading(true);
+setBookings([]); // Prevent UI from going blank while loading
+
       const token = await AsyncStorage.getItem('authToken');
       const response = await axios.post(
-        `http://192.168.8.138:5001/api/book/accept/${bookingId}`,
+        `https://service-booking-backend-eb9i.onrender.com/api/book/accept/${bookingId}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -141,25 +146,45 @@ const ViewBookingsPage = ({ navigation }) => {
           onPress: async () => {
             try {
               const token = await AsyncStorage.getItem('authToken');
+  
+              console.log(`Attempting to delete job with ID: ${bookingId}`);
+  
               const response = await axios.delete(
-                `http://192.168.8.138:5001/api/book/completed/${bookingId}`,
+                `https://service-booking-backend-eb9i.onrender.com/api/book/completed/${bookingId}`,
                 {
                   headers: { Authorization: `Bearer ${token}` },
                 }
               );
   
+              console.log('Server Response:', response.data);
+  
               if (response.data.success) {
                 Alert.alert('Success', 'Completed job deleted successfully.');
                 await fetchBookings();
               } else {
+                console.error('Failed to delete job. Server response:', response.data);
                 Alert.alert('Error', response.data.message || 'Failed to delete completed job.');
               }
+  
             } catch (error) {
-              console.error('Error deleting completed job:', error.response?.data || error.message);
-              Alert.alert(
-                'Error',
-                error.response?.data?.message || 'Unable to delete completed job. Please try again.'
-              );
+              console.error('Error deleting completed job:', error);
+  
+              let errorMessage = 'Unable to delete completed job. Please try again.';
+              if (error.response) {
+                console.error('Full error response:', JSON.stringify(error.response.data, null, 2));
+  
+                errorMessage = error.response.data?.message 
+                  ? error.response.data.message 
+                  : JSON.stringify(error.response.data, null, 2);
+              } else if (error.request) {
+                console.error('Request made but no response received:', error.request);
+                errorMessage = 'No response from the server. Check your internet connection.';
+              } else {
+                console.error('Unexpected error:', error.message);
+                errorMessage = error.message;
+              }
+  
+              Alert.alert('Error', errorMessage);
             }
           },
         },
@@ -181,7 +206,7 @@ const ViewBookingsPage = ({ navigation }) => {
             try {
               const token = await AsyncStorage.getItem('authToken');
               const response = await axios.delete(
-                `http://192.168.8.138:5001/api/book/rejected/${bookingId}`,
+                `https://service-booking-backend-eb9i.onrender.com/api/book/rejected/${bookingId}`,
                 {
                   headers: { Authorization: `Bearer ${token}` },
                 }
@@ -217,7 +242,7 @@ const ViewBookingsPage = ({ navigation }) => {
             try {
               const token = await AsyncStorage.getItem('authToken');
               const response = await axios.post(
-                `http://192.168.8.138:5001/api/book/complete/${bookingId}`,
+                `https://service-booking-backend-eb9i.onrender.com/api/book/complete/${bookingId}`,
                 {},
                 { headers: { Authorization: `Bearer ${token}` } }
               );
@@ -265,7 +290,7 @@ const ViewBookingsPage = ({ navigation }) => {
         <Image
           source={{
             uri: item.profileImage
-              ? `http://192.168.8.138:5001/${item.profileImage}`
+              ? `https://service-booking-backend-eb9i.onrender.com/${item.profileImage}`
               : "http://192.168.8.138:5001/uploads/default-profile.png",
           }}
           style={styles.profileImage}
@@ -285,10 +310,11 @@ const ViewBookingsPage = ({ navigation }) => {
       <View style={styles.detailsContainer}>
         <View style={styles.detailRow}>
           <MaterialIcons name="event" size={18} color="#666" />
-          // Inside renderBookingItem function:
-<Text style={styles.detailText}>
-  {moment(item.date).format('dddd, MMMM D, YYYY')} • {moment(item.time, 'HH:mm').format('hh:mm A')}
+          
+          <Text style={styles.detailText}>
+  {moment(item.date).format('dddd, MMMM D, YYYY')} <Text>•</Text> {moment(item.time, 'HH:mm').format('hh:mm A')}
 </Text>
+
         </View>
 
         <View style={styles.statusRow}>
@@ -350,12 +376,13 @@ const ViewBookingsPage = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1a237e" />
+      <View style={styles.loadingOverlay}>
+        <ActivityIndicator size="large" color="#fff" />
+        <Text style={styles.loadingText}>Processing, please wait...</Text>
       </View>
     );
   }
-
+  
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -414,8 +441,8 @@ const ViewBookingsPage = ({ navigation }) => {
             <Image
               source={{
                 uri: selectedBooking?.profileImage
-                  ? `http://192.168.8.138:5001/${selectedBooking.profileImage}`
-                  : "http://192.168.8.138:5001/uploads/default-profile.png",
+                  ? `https://service-booking-backend-eb9i.onrender.com/${selectedBooking.profileImage}`
+                  : "https://service-booking-backend-eb9i.onrender.com/uploads/default-profile.png",
               }}
               style={styles.modalImage}
             />
@@ -446,15 +473,10 @@ const ViewBookingsPage = ({ navigation }) => {
     <Text style={styles.modalText}>{selectedBooking?.address}</Text>
   </View>
   <View style={styles.modalRow}>
-    <MaterialIcons 
-      name="fiber-manual-record" 
-      size={16} 
-      color={getStatusColor(selectedBooking?.status)} 
-    />
-    <Text style={[styles.modalText, { color: getStatusColor(selectedBooking?.status) }]}>
-      {selectedBooking?.status}
-    </Text>
-  </View>
+  <MaterialIcons name="fiber-manual-record" size={16} color={getStatusColor(selectedBooking?.status)} />
+  <Text style={styles.modalText}>{selectedBooking?.status}</Text>
+</View>
+
  
 </View>
 
@@ -713,6 +735,45 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
   },
+ loadingOverlay: {
+     position: "absolute",
+     top: 0,
+     left: 0,
+     right: 0,
+     bottom: 0,
+     justifyContent: "center",
+     alignItems: "center",
+     backgroundColor: "rgba(26, 35, 126, 0.95)", // Using your PRIMARY_COLOR with opacity
+     zIndex: 999,
+   },
+   
+   loadingContainer: {
+     backgroundColor: "white",
+     padding: 30,
+     borderRadius: 16,
+     alignItems: "center",
+     width: '80%',
+     maxWidth: 300,
+     shadowColor: "#000",
+     shadowOffset: {
+       width: 0,
+       height: 2,
+     },
+     shadowOpacity: 0.25,
+     shadowRadius: 3.84,
+     elevation: 5,
+   },
+   
+   loadingText: {
+     marginTop: 16,
+     fontSize: 16,
+     color: "#fff",
+     fontWeight: "500",
+     textAlign: "center",
+     letterSpacing: 0.5,
+     fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif-medium',
+   },
+  
 });
 
 export default ViewBookingsPage;

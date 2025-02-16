@@ -46,6 +46,8 @@ const HomeScreen = ({ navigation, route }) => {
   const [filteredServices, setFilteredServices] = useState([]); // Store filtered services
   const [earningsModalVisible, setEarningsModalVisible] = useState(false);
   const [pendingBookingsCount, setPendingBookingsCount] = useState(0);
+  const [imageError, setImageError] = useState(false);
+
 
   LogBox.ignoreAllLogs();
 
@@ -73,7 +75,7 @@ const HomeScreen = ({ navigation, route }) => {
     try {
       const token = await AsyncStorage.getItem("authToken");
       const response = await fetch(
-        `http://192.168.8.138:5001/api/book/provider/bookings/pending`,
+        `https://service-booking-backend-eb9i.onrender.com/api/book/provider/bookings/pending`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -178,7 +180,7 @@ const HomeScreen = ({ navigation, route }) => {
 
     const fetchCategories = async () => {
       try {
-        const response = await fetch(`http://192.168.8.138:5001/api/auth/services`); // Fetch all services
+        const response = await fetch(`https://service-booking-backend-eb9i.onrender.com/api/auth/services`); // Fetch all services
         const data = await response.json();
         if (data.success && data.services) {
           // Group services by category
@@ -206,7 +208,7 @@ const HomeScreen = ({ navigation, route }) => {
     
     const fetchCategories1 = async () => {
       try {
-        const response = await fetch(`http://192.168.8.138:5001/api/auth/services`); // Fetch all services
+        const response = await fetch(`https://service-booking-backend-eb9i.onrender.com/api/auth/services`); // Fetch all services
         const data = await response.json();
         if (data.success && data.services) {
           setServices(data.services); // Store all services
@@ -293,7 +295,7 @@ const HomeScreen = ({ navigation, route }) => {
       }
   
       const response = await fetch(
-        `http://192.168.8.138:5001/api/auth/user-details`,
+        `https://service-booking-backend-eb9i.onrender.com/api/auth/user-details`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -329,7 +331,7 @@ const HomeScreen = ({ navigation, route }) => {
       if (!token || !isLoggedIn) return; // Ensure user is logged in
   
       const response = await fetch(
-        `http://192.168.8.138:5001/api/auth/notifications/unread-count`,
+        `https://service-booking-backend-eb9i.onrender.com/api/auth/notifications/unread-count`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -356,7 +358,7 @@ const HomeScreen = ({ navigation, route }) => {
         if (!token) return;
   
         const response = await axios.get(
-          "http://192.168.8.138:5001/api/reviews/bookings/pending-rating",
+          "https://service-booking-backend-eb9i.onrender.com/api/reviews/bookings/pending-rating",
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -371,8 +373,8 @@ const HomeScreen = ({ navigation, route }) => {
             bookingId: firstBooking._id,
             providerName: firstBooking.providerId?.name || "Unknown Provider",
             avatar: firstBooking.providerId?.profileImage 
-  ? `http://192.168.8.138:5001/${firstBooking.providerId.profileImage.replace(/\\/g, "/")}` 
-  : "http://192.168.8.138:5001/uploads/default-profile.png",
+  ? `https://service-booking-backend-eb9i.onrender.com/${firstBooking.providerId.profileImage.replace(/\\/g, "/")}` 
+  : "https://service-booking-backend-eb9i.onrender.com/uploads/default-profile.png",
 
             serviceName: firstBooking.serviceName,
             totalPrice: firstBooking.price || "N/A",
@@ -397,7 +399,7 @@ const HomeScreen = ({ navigation, route }) => {
         if (!token) return;
   
         const response = await axios.get(
-          "http://192.168.8.138:5001/api/reviews/my-reviews",
+          "https://service-booking-backend-eb9i.onrender.com/api/reviews/my-reviews",
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -460,27 +462,23 @@ const handleRefresh = async () => {
 
   
 
-  
-  const getProfileImageUrl = (profileImage) => {
-    if (!profileImage) {
-      return 'http://192.168.8.138:5001/uploads/default-profile.png';
-    }
-    
-    // Replace backslashes with forward slashes
-    const cleanPath = profileImage.replace(/\\/g, '/');
-    
-    // If the path already starts with 'http', return as is
-    if (cleanPath.startsWith('http')) {
-      return cleanPath;
-    }
-    
-    // Remove 'uploads/' if it's at the start of the path since we'll add it in the URL
-    const imagePath = cleanPath.startsWith('uploads/') 
-      ? cleanPath.substring(7) 
-      : cleanPath;
-    
-    return `http://192.168.8.138:5001/uploads/${imagePath}`;
-  };
+const getProfileImageUrl = (profileImage) => {
+  if (!profileImage) {
+    return "https://service-booking-backend-eb9i.onrender.com/uploads/default-profile.png";
+  }
+
+  const cleanPath = profileImage.replace(/\\/g, "/");
+
+  if (cleanPath.startsWith("http")) {
+    return cleanPath;
+  }
+
+  const imagePath = cleanPath.startsWith("uploads/")
+    ? cleanPath.substring(7)
+    : cleanPath;
+
+  return `https://service-booking-backend-eb9i.onrender.com/uploads/${imagePath}`;
+};
 
   const fetchCurrentLocation = async () => {
     try {
@@ -493,12 +491,25 @@ const handleRefresh = async () => {
       const currentPosition = await Location.getCurrentPositionAsync({});
       const { latitude, longitude } = currentPosition.coords;
       const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
-      const city = geocode[0]?.city || "Namibia";
-      const country = geocode[0]?.country || "Namibia";
-      setLocation(`${city}, ${country}`);
+  
+      // Extract city and country separately
+      const city = geocode[0]?.city || "Unknown City";
+      const country = geocode[0]?.country || "Unknown Country";
+      const fullLocation = `${city}, ${country}`;
+  
+      // ✅ Keep full location in state
+      setLocation(fullLocation);
+  
+      // ✅ Store only the city in AsyncStorage
+      console.log("🔹 Storing only city in AsyncStorage:", city);
+      await AsyncStorage.setItem("userLocation", city);
+  
+      // ✅ Verify storage
+      const savedLocation = await AsyncStorage.getItem("userLocation");
+      console.log("✅ Retrieved from AsyncStorage:", savedLocation);
     } catch (error) {
       console.error("Error fetching location:", error);
-      setLocation("Namibia"); // Fallback to Namibia
+      setLocation("Unknown City, Unknown Country"); // Fallback value
     }
   };
   
@@ -575,7 +586,7 @@ const handleRefresh = async () => {
       });
   
       const response = await fetch(
-        `http://192.168.8.138:5001/api/auth/update-profile-picture/${userDetails.id}`,
+        `https://service-booking-backend-eb9i.onrender.com/api/auth/update-profile-picture/${userDetails.id}`,
         {
           method: "PUT",
           headers: {
@@ -638,16 +649,16 @@ const handleRefresh = async () => {
         }}
         disabled={!isLoggedIn} // Disable click when logged out
       >
-        <Image
-          source={{
-            uri: getProfileImageUrl(userDetails?.profileImage),
-          }}
-          style={styles.sidebarImage}
-          onError={(error) => {
-            console.log("Sidebar image loading error:", error);
-            setImageError(true);
-          }}
-        />
+<Image
+  source={{
+    uri: userDetails?.profileImage
+      ? `https://service-booking-backend-eb9i.onrender.com/${userDetails.profileImage}`
+      : "https://service-booking-backend-eb9i.onrender.com/uploads/default-profile.png",
+  }}
+  style={styles.profileImage1}
+/>
+
+
       </TouchableOpacity>
 
       {/* Username */}
@@ -867,7 +878,7 @@ const renderEarningsModal = () => (
         setSelectedCategory(category.category);
         try {
           const response = await fetch(
-            `http://192.168.8.138:5001/api/auth/services?category=${encodeURIComponent(category.category)}` // Fetch services by category name
+            `https://service-booking-backend-eb9i.onrender.com/api/auth/services?category=${encodeURIComponent(category.category)}` // Fetch services by category name
           );
           const data = await response.json();
           if (data.success && data.services) {
@@ -1076,6 +1087,14 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#1a237e',
   },
+  profileImage1: {
+    width: 100,
+    height: 100,
+    borderRadius: 50, // Half of width & height to make it a perfect circle
+    borderWidth: 2,
+    borderColor: '#1a237e',
+    overflow: 'hidden', // Ensures it stays within the circle
+  },  
   mainContent: {
     flex: 1,
   },

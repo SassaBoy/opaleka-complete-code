@@ -10,25 +10,41 @@ const QuickTips = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    let isMounted = true; // Prevents updating state if component unmounts
+  
     const fetchTips = async () => {
       try {
-        setLoading(true);
-        const response = await axios.get("http://192.168.8.138:5001/api/tips");
-        setTips(response.data.data || []);
+        const response = await axios.get("https://service-booking-backend-eb9i.onrender.com/api/tips");
+        const newTips = response.data.data || [];
+    
+        if (JSON.stringify(newTips) !== JSON.stringify(tips)) {
+          setTips(newTips);
+        }
+    
+        setError(null); // Clear previous errors if data fetches successfully
       } catch (error) {
         console.error("Error fetching tips:", error.message);
         setError("Failed to fetch tips. Please try again later.");
       } finally {
-        setLoading(false);
+        setLoading(false); // ✅ Make sure loading stops
       }
     };
-
-    fetchTips();
-    const interval = setInterval(fetchTips, 10000);
-
-    return () => clearInterval(interval);
-  }, []);
-
+    
+  
+    fetchTips(); // Fetch once initially
+  
+    const interval = setInterval(() => {
+      if (isMounted) {
+        fetchTips();
+      }
+    }, 10000); // Fetch new tips every 10s
+  
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [tips]); // Dependency on `tips` to prevent unnecessary updates
+  
   return (
     <View style={styles.container}>
       <Text style={styles.sectionTitle}>Quick Tips</Text>

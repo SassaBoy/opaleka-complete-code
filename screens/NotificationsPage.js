@@ -25,7 +25,7 @@ const NotificationsPage = () => {
     try {
       setLoading(true);
       const response = await axios.get(
-        "http://192.168.8.138:5001/api/auth/notifications",
+        "https://service-booking-backend-eb9i.onrender.com/api/auth/notifications",
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -57,7 +57,7 @@ const NotificationsPage = () => {
     const token = await AsyncStorage.getItem("authToken");
     try {
       const response = await axios.delete(
-        `http://192.168.8.138:5001/api/auth/notifications/${notificationId}`,
+        `https://service-booking-backend-eb9i.onrender.com/api/auth/notifications/${notificationId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (response.status === 200) {
@@ -80,7 +80,7 @@ const NotificationsPage = () => {
 
     try {
       await axios.put(
-        `http://192.168.8.138:5001/api/auth/notifications/${notification._id}/read`,
+        `https://service-booking-backend-eb9i.onrender.com/api/auth/notifications/${notification._id}/read`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );

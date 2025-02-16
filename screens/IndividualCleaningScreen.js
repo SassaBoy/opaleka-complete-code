@@ -40,7 +40,7 @@ const IndividualCleaningScreen = ({ navigation, route }) => {
   const fetchServiceDetails = async () => {
     try {
       const response = await axios.get(
-        `http://192.168.8.138:5001/api/auth/provider-service`,
+        `https://service-booking-backend-eb9i.onrender.com/api/auth/provider-service`,
         {
           params: { name, email, serviceName },
         }
@@ -73,7 +73,7 @@ const IndividualCleaningScreen = ({ navigation, route }) => {
       // Fetch user details from the API
       let userId;
       try {
-        const response = await fetch("http://192.168.8.138:5001/api/auth/user-details", {
+        const response = await fetch("https://service-booking-backend-eb9i.onrender.com/api/auth/user-details", {
           headers: {
             Authorization: `Bearer ${token}`, // Include authToken in the headers
           },
@@ -138,7 +138,7 @@ const IndividualCleaningScreen = ({ navigation, route }) => {
   
       // Make the booking request
       const response = await axios.post(
-        "http://192.168.8.138:5001/api/book/book-service",
+        "https://service-booking-backend-eb9i.onrender.com/api/book/book-service",
         bookingData,
         {
           headers: {

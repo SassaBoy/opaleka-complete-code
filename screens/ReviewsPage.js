@@ -32,7 +32,7 @@ const ReviewsPage = ({ navigation }) => {
         }
   
         const response = await axios.get(
-          "http://192.168.8.138:5001/api/reviews/my-reviews",
+          "https://service-booking-backend-eb9i.onrender.com/api/reviews/my-reviews",
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -88,16 +88,17 @@ const ReviewsPage = ({ navigation }) => {
         <View style={styles.reviewerInfo}>
         <Image
   source={{
-    uri: item.userId.profileImage
-      ? `http://192.168.8.138:5001/${item.userId.profileImage.replace(/\\/g, "/")}`
-      : "http://192.168.8.138:5001/uploads/default-profile.png",
+    uri: item.userId && item.userId.profileImage
+      ? `https://service-booking-backend-eb9i.onrender.com/${item.userId.profileImage.replace(/\\/g, "/")}`
+      : "https://service-booking-backend-eb9i.onrender.com/uploads/default-profile.png",
   }}
   style={styles.avatar}
 />
 
 
+
           <View style={styles.reviewerDetails}>
-            <Text style={styles.reviewerName}>{item.userId.name || "Anonymous"}</Text>
+          <Text style={styles.reviewerName}>{item.userId?.name || "Anonymous"}</Text>
             <View style={styles.ratingContainer}>
               <View style={styles.starsContainer}>{renderStars(item.rating)}</View>
               <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>

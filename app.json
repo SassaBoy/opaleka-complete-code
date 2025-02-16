@@ -1,43 +1,51 @@
 {
   "expo": {
-    "name": "ServiceBookingApp",
-    "slug": "ServiceBookingApp",
+    "name": "Opaleka",
+    "slug": "opaleka",
+    "scheme": "opaleka",
+    "description": "Opaleka - Service Booking everywhere in Namibia",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/opalekalogo1-removebg.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
+      "image": "./assets/opalekalogo1-removebg.png",
       "resizeMode": "contain",
       "backgroundColor": "#1a237e"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.gewersdeon.ServiceBookingApp",
+      "bundleIdentifier": "com.gewersdeon.opaleka",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/opalekalogo1-removebg.png",
         "backgroundColor": "#1a237e"
-      }
+      },
+      "package": "com.gewersdeon.opaleka"
     },
     "web": {
       "favicon": "./assets/apple-touch-icon.png"
     },
+    "owner": "gewersdeon",
+    "runtimeVersion": "1.0.0",
+    "updates": {
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/66e649e4-be36-43c1-accd-a2713b5f4348"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "extra": {
       "eas": {
-        "projectId": "66e649e4-be36-43c1-accd-a2713b5f4348"
+        "projectId": "4de16de2-0d33-4ca2-842a-a7b325baa3fd"
       }
-    },
-    "owner": "gewersdeon",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
-    "updates": {
-      "url": "https://u.expo.dev/66e649e4-be36-43c1-accd-a2713b5f4348"
     }
   }
 }
