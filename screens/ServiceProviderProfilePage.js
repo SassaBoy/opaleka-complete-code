@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,6 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
-  Platform,
 } from "react-native";
 import Carousel from "react-native-reanimated-carousel";
 import { TabView, SceneMap, TabBar } from "react-native-tab-view";
@@ -21,30 +20,14 @@ const SCREEN_WIDTH = Dimensions.get("window").width;
 const PRIMARY_COLOR = "#1a237e";
 
 const ServiceProviderProfilePage = ({ route, navigation }) => {
-  // Extract params and ensure they have valid defaults
-  const { name, email, serviceName, reviewCount, averageRating } = route?.params || {};
-  const DEFAULT_IMAGE = "https://service-booking-backend-eb9i.onrender.com/uploads/default-profile.png";
-  const isMounted = useRef(true);
+  const { name, email, serviceName, reviewCount, averageRating } = route.params || {};
 
-  if (!name || !email) {
-    console.error("Navigation params missing:", route?.params);
-  }
-  
-  useEffect(() => {
-    console.log('ServiceProviderProfilePage mounted with params:', route?.params);
-    return () => {
-      console.log('ServiceProviderProfilePage unmounted');
-      isMounted.current = false;
-    };
-  }, []);
-
-  console.log("Received params in Profile Page:", { name, email, serviceName, reviewCount, averageRating });
+  // Debugging to verify params - remove in production
+  console.log("Received params:", { name, email, serviceName });
 
   const [provider, setProvider] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [tabIndex, setTabIndex] = useState(0);
-  const [error, setError] = useState(null);
-  
+  const [loading, setLoading] = useState(true);
   const [routes] = useState([
     { key: "first", title: "Services" },
     { key: "second", title: "Reviews" },
@@ -53,116 +36,47 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
   ]);
 
   useEffect(() => {
-    // Set mounted flag
-    isMounted.current = true;
-    
-    if (!name || !email) {
-      setError("Missing provider details");
-      setLoading(false);
-      return;
-    }
     fetchProviderDetails();
-    
-    // Cleanup function
-    return () => {
-      isMounted.current = false;
-    };
-  }, [name, email]); // Ensure it runs when params update
-  
+  }, []);
 
+  // Remove this effect in production
   useEffect(() => {
-    if (provider) {
-      console.log("Provider updated:", provider);
-    }
+    console.log("Provider state updated:", provider);
   }, [provider]);
   
-
   const fetchProviderDetails = async () => {
     try {
-        console.log("Fetching provider details for:", name, email);
-        
-        const response = await axios.get(
-            `https://service-booking-backend-eb9i.onrender.com/api/auth/providers/details`,
-            { 
-                params: { name, email },
-                timeout: 15000, // 15 seconds timeout
-            }
-        );
-
-        console.log("API Response:", response.data);
-
-        if (response.data?.success && response.data.data) {
-            const providerData = response.data.data;
-
-            // Validate required fields
-            if (!providerData.name) {
-                console.error("Invalid provider data received:", providerData);
-                if (isMounted.current) setError("Invalid provider details received.");
-                return;
-            }
-
-            // Safely process images array
-            let safeImages = [];
-            try {
-                if (Array.isArray(providerData.images)) {
-                    safeImages = providerData.images
-                        .filter(img => img) // Remove any null/undefined/empty values
-                        .map(img => getImageUrl(img));
-                }
-            } catch (imgErr) {
-                console.error("Error processing images:", imgErr);
-            }
-
-            const finalProvider = {
-                ...providerData,
-                reviews: reviewCount || 0,
-                rating: averageRating || "0.0",
-                images: safeImages.length > 0 
-                    ? safeImages 
-                    : [DEFAULT_IMAGE]
-            };
-            
-            console.log("Setting provider state with:", finalProvider);
-            if (isMounted.current) {
-                setProvider(finalProvider);
-            }
-        } else {
-            console.error("API returned unexpected format:", response.data);
-            if (isMounted.current) {
-                setError("Could not fetch provider details. Unexpected data format.");
-            }
-        }
-    } catch (error) {
-        console.error("API Request Failed:", error?.response?.data || error.message);
-        if (isMounted.current) {
-            if (error.code === 'ECONNABORTED') {
-                setError("Request timed out. Please check your internet connection.");
-            } else {
-                setError(error?.response?.data?.message || "Failed to load provider details.");
-            }
-        }
-    } finally {
-        if (isMounted.current) {
-            setLoading(false);
-        }
-    }
-};
-
-
-  const getImageUrl = (imagePath) => {
-    if (!imagePath) return DEFAULT_IMAGE;
-    try {
-      if (imagePath.startsWith("http")) return imagePath;
+      if (!name || !email) {
+        setLoading(false);
+        Alert.alert("Error", "Missing provider information");
+        return;
+      }
       
-      // Clean the path more thoroughly
-      const cleanPath = imagePath.replace(/\\/g, "/").replace(/^\/+/, '');
-      return `https://service-booking-backend-eb9i.onrender.com/${cleanPath}`;
-    } catch (err) {
-      console.error("Image URL parsing error:", err);
-      return DEFAULT_IMAGE;
+      console.log(`Fetching provider details for name: ${name}, email: ${email}`);
+      const response = await axios.get(
+        `https://service-booking-backend-eb9i.onrender.com/api/auth/providers/details?name=${encodeURIComponent(name)}&email=${encodeURIComponent(email)}`
+      );
+  
+      if (response.data?.success) {
+        const providerData = response.data.data;
+  
+        // Extract rating and review count from route params
+        setProvider({
+          ...providerData,
+          reviews: route.params?.reviewCount || 0,
+          rating: route.params?.averageRating || "0.0",
+        });
+      } else {
+        console.warn("No provider details found.");
+        Alert.alert("Not Found", "Provider details could not be found");
+      }
+    } catch (error) {
+      console.error("Error fetching provider details:", error.message);
+      Alert.alert("Error", "Failed to fetch provider details. Please try again later.");
+    } finally {
+      setLoading(false);
     }
   };
-
   
   const getIconUri = (platform) => {
     switch (platform.toLowerCase()) {
@@ -177,13 +91,15 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
       case "tiktok":
         return "https://cdn-icons-png.flaticon.com/512/3046/3046120.png";
       case "website":
-        return "https://cdn-icons-png.flaticon.com/512/841/841364.png"; // Generic globe icon for websites
+        return "https://cdn-icons-png.flaticon.com/512/841/841364.png";
       default:
-        return "https://cdn-icons-png.flaticon.com/512/709/709722.png"; // Default generic link icon
+        return "https://cdn-icons-png.flaticon.com/512/709/709722.png";
     }
   };
 
   const handleSocialLinkPress = async (url) => {
+    if (!url) return;
+    
     try {
       // Normalize the URL to include "https://" if missing
       const normalizedUrl = url.startsWith("http://") || url.startsWith("https://")
@@ -194,7 +110,7 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
       const supported = await Linking.canOpenURL(normalizedUrl);
   
       if (supported) {
-        await Linking.openURL(normalizedUrl); // Open the URL in the default browser
+        await Linking.openURL(normalizedUrl);
       } else {
         Alert.alert("Invalid URL", "Sorry, this link cannot be opened.");
       }
@@ -203,7 +119,6 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
       Alert.alert("Error", "An error occurred while trying to open the link.");
     }
   };
-  
   
   const renderStars = (rating) => (
     <View style={styles.starsContainer}>
@@ -228,16 +143,16 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
           <View key={index} style={styles.serviceCard}>
             <View style={styles.serviceItem}>
               <View style={styles.serviceInfo}>
-                <Text style={styles.serviceName}>{service.name}</Text>
+                <Text style={styles.serviceName}>{service.name || "Unnamed Service"}</Text>
                 <Text style={styles.servicePrice}>
-                  NAD{service.price} ({service.priceType})
+                  NAD{service.price || "0"} ({service.priceType || "per service"})
                 </Text>
               </View>
               <TouchableOpacity
                 style={styles.bookServiceButton}
                 onPress={() =>
                   navigation.navigate("BookingPage", {
-                    serviceName: service.name,
+                    serviceName: service.name || "Service",
                     name,
                     email,
                     reviewCount: provider?.reviews || 0,
@@ -256,25 +171,25 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
     </ScrollView>
   );
   
-
   const SecondRoute = () => (
     <ScrollView style={styles.tabContent}>
-      {provider?.reviews && provider.reviews.length > 0 ? (
+      {provider?.reviews && Array.isArray(provider.reviews) && provider.reviews.length > 0 ? (
         provider.reviews.map((review, index) => (
           <View key={index} style={styles.reviewCard}>
             <View style={styles.reviewHeader}>
               <Image
                 source={{
-                  uri: review.userId?.profileImage
-                    ? getImageUrl(review.userId.profileImage)
-                    : DEFAULT_IMAGE,
+                  uri: review?.userId?.profileImage
+                    ? `https://service-booking-backend-eb9i.onrender.com/${review.userId.profileImage.replace(/\\/g, "/")}`
+                    : "https://service-booking-backend-eb9i.onrender.com/uploads/default-profile.png",
                 }}
                 style={styles.reviewerAvatar}
+                defaultSource={require('../assets/default-profile.png')}
               />
               <View style={styles.reviewerInfo}>
-                <Text style={styles.reviewUser}>{review.userId?.name || "Anonymous"}</Text>
+                <Text style={styles.reviewUser}>{review?.userId?.name || "Anonymous"}</Text>
                 <Text style={styles.reviewDate}>
-                  {new Date(review.createdAt).toLocaleDateString()}
+                  {review?.createdAt ? new Date(review.createdAt).toLocaleDateString() : "Unknown date"}
                 </Text>
                 <View style={styles.starsContainer}>
                   {[...Array(5)].map((_, i) => (
@@ -282,7 +197,7 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
                       key={i}
                       style={[
                         styles.star,
-                        { color: i < review.rating ? "#FFD700" : "#E0E0E0" },
+                        { color: i < (review?.rating || 0) ? "#FFD700" : "#E0E0E0" },
                       ]}
                     >
                       ★
@@ -291,7 +206,7 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
                 </View>
               </View>
             </View>
-            <Text style={styles.reviewText}>{review.review}</Text>
+            <Text style={styles.reviewText}>{review?.review || "No comment"}</Text>
           </View>
         ))
       ) : (
@@ -300,25 +215,25 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
     </ScrollView>
   );
   
-
   const ThirdRoute = () => (
     <ScrollView style={styles.tabContent}>
-      {provider?.operatingHours && Object.keys(provider.operatingHours).length > 0 ? (
-        <View style={styles.hoursCard}>
-          {Object.entries(provider.operatingHours).map(([day, hours]) => (
+      <View style={styles.hoursCard}>
+        {provider?.operatingHours && typeof provider.operatingHours === 'object' ? 
+          Object.entries(provider.operatingHours).map(([day, hours]) => (
             <View key={day} style={styles.hoursRow}>
               <Text style={styles.day}>{day}</Text>
               <Text style={styles.hours}>
-                {hours && hours.isClosed
+                {hours?.isClosed
                   ? "Closed"
-                  : hours ? `${hours.start} - ${hours.end}` : "Not specified"}
+                  : hours?.start && hours?.end
+                    ? `${hours.start} - ${hours.end}`
+                    : "Hours not specified"}
               </Text>
             </View>
-          ))}
-        </View>
-      ) : (
-        <Text style={styles.emptyText}>No operating hours available.</Text>
-      )}
+          )) : 
+          <Text style={styles.emptyText}>Operating hours not available.</Text>
+        }
+      </View>
     </ScrollView>
   );
 
@@ -343,15 +258,16 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Address</Text>
-          <Text style={styles.detailText}>{provider?.address || "N/A"}</Text>
+          <Text style={styles.detailText}>{provider?.address || "No address provided"}</Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Phone</Text>
-          <Text style={styles.detailText}>{provider?.phone || "N/A"}</Text>
+          <Text style={styles.detailText}>{provider?.phone || "No phone provided"}</Text>
         </View>
-        {provider?.socialLinks && Object.values(provider.socialLinks).some(link => link) && (
-          <View style={styles.socialLinksContainer}>
-            {Object.entries(provider.socialLinks).map(([platform, url], index) =>
+        
+        <View style={styles.socialLinksContainer}>
+          {provider?.socialLinks && typeof provider.socialLinks === 'object' ?
+            Object.entries(provider.socialLinks).map(([platform, url], index) =>
               url ? (
                 <TouchableOpacity
                   key={index}
@@ -366,14 +282,14 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
                   />
                 </TouchableOpacity>
               ) : null
-            )}
-          </View>
-        )}
+            ) :
+            <Text style={styles.emptyText}>No social links available.</Text>
+          }
+        </View>
       </View>
     </ScrollView>
   );
   
-
   const renderTabBar = (props) => (
     <TabBar
       {...props}
@@ -396,103 +312,64 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={PRIMARY_COLOR} />
-        <Text style={styles.loadingText}>Loading provider details...</Text>
       </View>
     );
   }
-  
-  
-  if (error) {
+
+  // Safety check if provider is null
+  if (!provider) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorTitle}>Something went wrong</Text>
-        <Text style={styles.errorText}>{error}</Text>
+        <Text style={styles.errorText}>
+          Could not load provider information. Please try again later.
+        </Text>
         <TouchableOpacity 
           style={styles.retryButton}
           onPress={() => {
-            setError(null);
             setLoading(true);
             fetchProviderDetails();
           }}
         >
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.retryButton, {marginTop: 12, backgroundColor: '#757575'}]}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.retryButtonText}>Go Back</Text>
-        </TouchableOpacity>
       </View>
     );
   }
-  
-  // Prevent blank screen if provider is null
-  if (!provider || Object.keys(provider).length === 0) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorTitle}>Provider Not Found</Text>
-        <Text style={styles.errorText}>No provider details found.</Text>
-        <TouchableOpacity 
-          style={styles.retryButton}
-          onPress={() => {
-            setError(null);
-            setLoading(true);
-            fetchProviderDetails();
-          }}
-        >
-          <Text style={styles.retryButtonText}>Retry</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.retryButton, {marginTop: 12, backgroundColor: '#757575'}]}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.retryButtonText}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-  
-  // Extract this renderCarouselItem function outside the render path
-  const renderCarouselItem = ({ item }) => (
-    <View style={styles.carouselImageContainer}>
-      <Image
-        source={{
-          uri: item || DEFAULT_IMAGE
-        }}
-        style={styles.carouselImage}
-        resizeMode="cover"
-      />
-    </View>
-  );
-  
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1a237e" />
       <View style={styles.header}>
-        {provider?.images?.length > 0 ? (
+        {provider?.images && provider.images.length > 0 ? (
           <Carousel
             loop
             width={SCREEN_WIDTH}
             height={300}
-            data={[...provider.images]} // Create a new array to avoid reactive issues
-            renderItem={renderCarouselItem} // Use the extracted function
-            autoPlay={provider.images.length > 1} // Explicit boolean
+            data={provider.images}
+            renderItem={({ item }) => (
+              <Image
+                source={{
+                  uri: typeof item === 'string' && item ? (
+                    item.startsWith("http")
+                      ? item
+                      : `https://service-booking-backend-eb9i.onrender.com/${item}`
+                  ) : "https://service-booking-backend-eb9i.onrender.com/uploads/default-profile.png"
+                }}
+                style={styles.carouselImage}
+                resizeMode="cover"
+                defaultSource={require('../assets/default-profile.png')}
+              />
+            )}
+            autoPlay
             autoPlayInterval={3000}
-            mode="parallax"
-            modeConfig={{
-              parallaxScrollingScale: 0.9,
-              parallaxScrollingOffset: 50,
-            }}
           />
         ) : (
           <Image
-            source={{ uri: DEFAULT_IMAGE }}
+            source={require('../assets/default-profile.png')}
             style={styles.carouselImage}
             resizeMode="cover"
           />
         )}
-
         <View style={styles.headerOverlay}>
           <View style={styles.ratingContainer}>
             <Text style={styles.rating}>★ {provider?.rating || "0.0"}</Text>
@@ -505,7 +382,7 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
 
       <View style={styles.businessInfo}>
         <View style={styles.titleRow}>
-          <Text style={styles.businessName}>{provider?.name}</Text>
+          <Text style={styles.businessName}>{provider?.name || "Service Provider"}</Text>
           {provider?.verified && (
             <Image
               source={{
@@ -528,18 +405,17 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
         initialLayout={{ width: SCREEN_WIDTH }}
         renderTabBar={renderTabBar}
         style={styles.tabView}
-        lazy={true} // Add this to lazy load tabs
-        lazyPreloadDistance={1} // Preload only adjacent tabs
       />
+
       <TouchableOpacity
         style={styles.bookButton}
         onPress={() =>
           navigation.navigate("BookingPage", {
-            serviceName,
+            serviceName: serviceName || (provider?.services && provider.services.length > 0 ? provider.services[0].name : "Service"),
             name,
             email,
-            reviewCount: provider?.reviews || 0, // Pass the review count
-            averageRating: provider?.rating || "0.0", // Pass the average rating
+            reviewCount: provider?.reviews || 0,
+            averageRating: provider?.rating || "0.0",
           })
         }
       >
@@ -619,7 +495,6 @@ const styles = StyleSheet.create({
     color: '#757575',
     lineHeight: 20,
   },
-  // Enhanced Tab Navigation Styles
   tabBar: {
     backgroundColor: '#ffffff',
     elevation: 2,
@@ -628,7 +503,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
-    height: 48, // Fixed height for better touch targets
+    height: 48,
   },
   tabIndicator: {
     backgroundColor: PRIMARY_COLOR,
@@ -640,8 +515,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    margin: 0, // Remove default margin
-    padding: 0, // Remove default padding
+    margin: 0,
+    padding: 0,
   },
   tabView: {
     flex: 1,
@@ -649,7 +524,7 @@ const styles = StyleSheet.create({
   },
   tabContent: {
     padding: 16,
-    flexGrow: 1, // Ensures content fills available space
+    flexGrow: 1,
   },
   serviceCard: {
     backgroundColor: '#ffffff',
@@ -691,7 +566,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   bookServiceButton: {
-    backgroundColor: PRIMARY_COLOR, // Changed from green to primary color
+    backgroundColor: PRIMARY_COLOR,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
@@ -754,7 +629,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#757575",
     textAlign: "center",
-    marginTop: 16,
+    marginTop: 24,
+    marginBottom: 24,
   },
   hoursCard: {
     backgroundColor: '#ffffff',
@@ -854,7 +730,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  // New styles for active tab indication
   activeTab: {
     borderBottomWidth: 3,
     borderBottomColor: PRIMARY_COLOR,
@@ -874,46 +749,28 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#F8F9FF',
   },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FF3B30',
-    marginBottom: 8,
-  },
   errorText: {
     fontSize: 16,
-    color: '#424242',
+    color: '#666',
     textAlign: 'center',
     marginBottom: 20,
   },
   retryButton: {
     backgroundColor: PRIMARY_COLOR,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
     borderRadius: 8,
   },
   retryButtonText: {
-    color: '#FFFFFF',
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-  },
-  carouselImageContainer: {
-    width: SCREEN_WIDTH,
-    height: 300,
-    backgroundColor: '#F0F0F0',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8F9FF', // Light background for contrast
-  },
-  loadingText: {
-    marginTop: 15,
-    fontSize: 16,
-    color: "#424242", 
-    fontWeight: "500",
-    textAlign: "center",
+    backgroundColor: '#F8F9FF',
   },
 });
 

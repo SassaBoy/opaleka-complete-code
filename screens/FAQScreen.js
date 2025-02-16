@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, LayoutAnimation, Platform, UIManager, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, LayoutAnimation, Platform, UIManager, SafeAreaView, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
+const { width } = Dimensions.get('window');
+
+// Enable LayoutAnimation for Android
 if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
@@ -12,6 +16,18 @@ const FAQScreen = ({ navigation }) => {
   const handlePress = (index) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpanded(expanded === index ? null : index);
+  };
+
+  // Define gradient colors for different FAQ categories
+  const getGradientColors = (index) => {
+    const gradients = [
+      ['#4CAF50', '#2E7D32'], // Green
+      ['#2196F3', '#1565C0'], // Blue
+      ['#F44336', '#C62828'], // Red
+      ['#FF9800', '#EF6C00'], // Orange
+      ['#9C27B0', '#7B1FA2'], // Purple
+    ];
+    return gradients[index % gradients.length];
   };
 
   const faqs = [
@@ -83,6 +99,7 @@ const FAQScreen = ({ navigation }) => {
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}
+          accessibilityLabel="Go back"
         >
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
@@ -92,6 +109,7 @@ const FAQScreen = ({ navigation }) => {
       <ScrollView 
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.content}>
           {faqs.map((faq, index) => (
@@ -105,8 +123,19 @@ const FAQScreen = ({ navigation }) => {
               <TouchableOpacity
                 onPress={() => handlePress(index)}
                 style={styles.faqHeader}
+                accessibilityLabel={`Expand question: ${faq.question}`}
               >
-                <Text style={styles.faqQuestion}>{faq.question}</Text>
+                <View style={styles.questionContainer}>
+                  <LinearGradient
+                    colors={getGradientColors(index)}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.iconContainer}
+                  >
+                    <Text style={styles.questionNumber}>{index + 1}</Text>
+                  </LinearGradient>
+                  <Text style={styles.faqQuestion}>{faq.question}</Text>
+                </View>
                 <Ionicons 
                   name={expanded === index ? 'chevron-up' : 'chevron-down'} 
                   size={24} 
@@ -157,19 +186,22 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 32,
+  },
   content: {
     padding: 16,
   },
   section: {
     backgroundColor: '#ffffff',
-    borderRadius: 12,
-    marginBottom: 12,
-    padding: 16,
-    elevation: 2,
+    borderRadius: 16,
+    marginBottom: 16,
+    padding: 20,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
-    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
   lastSection: {
     marginBottom: 24,
@@ -179,23 +211,42 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  questionContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  questionNumber: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
   faqQuestion: {
     flex: 1,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: '#1a237e',
     marginRight: 12,
   },
   faqAnswer: {
-    marginTop: 12,
-    paddingTop: 12,
+    marginTop: 16,
+    paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: '#eee',
   },
   faqAnswerText: {
-    fontSize: 16,
+    fontSize: 15,
     lineHeight: 24,
-    color: '#666',
+    color: '#546E7A',
+    letterSpacing: 0.2,
   },
 });
 

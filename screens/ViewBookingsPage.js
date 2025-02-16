@@ -286,45 +286,45 @@ setBookings([]); // Prevent UI from going blank while loading
       }}
       activeOpacity={0.9}
     >
-      <View style={styles.cardHeader}>
-        <Image
-          source={{
-            uri: item.profileImage
-              ? `https://service-booking-backend-eb9i.onrender.com/${item.profileImage}`
-              : "http://192.168.8.138:5001/uploads/default-profile.png",
-          }}
-          style={styles.profileImage}
-        />
-        <View style={styles.headerTextContainer}>
-          <Text style={styles.clientName}>{item.clientName}</Text>
-          <Text style={styles.serviceName}>{item.serviceName}</Text>
+      <View style={styles.cardHeaderContainer}>
+        <View style={styles.cardHeader}>
+          <Image
+            source={{
+              uri: item.profileImage
+                ? `https://service-booking-backend-eb9i.onrender.com/${item.profileImage}`
+                : "http://192.168.8.138:5001/uploads/default-profile.png",
+            }}
+            style={styles.profileImage}
+          />
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.clientName}>{item.clientName}</Text>
+            <Text style={styles.serviceName}>{item.serviceName}</Text>
+          </View>
+          <MaterialIcons 
+            name="chevron-right" 
+            size={24} 
+            color="#1a237e" 
+            style={styles.chevron}
+          />
         </View>
-        <MaterialIcons 
-          name="chevron-right" 
-          size={24} 
-          color="#1a237e" 
-          style={styles.chevron}
-        />
       </View>
-
+  
       <View style={styles.detailsContainer}>
-        <View style={styles.detailRow}>
-          <MaterialIcons name="event" size={18} color="#666" />
-          
-          <Text style={styles.detailText}>
-  {moment(item.date).format('dddd, MMMM D, YYYY')} <Text>•</Text> {moment(item.time, 'HH:mm').format('hh:mm A')}
-</Text>
-
-        </View>
-
         <View style={styles.statusRow}>
           <View style={[styles.statusDot, { backgroundColor: getStatusColor(item.status) }]} />
           <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
             {item.status}
           </Text>
         </View>
+        
+        <View style={styles.detailRow}>
+          <MaterialIcons name="event" size={18} color="#666" />
+          <Text style={styles.detailText}>
+            {moment(item.date).format('dddd, MMMM D, YYYY')} <Text>•</Text> {moment(item.time, 'HH:mm').format('hh:mm A')}
+          </Text>
+        </View>
       </View>
-
+  
       <View style={styles.actionContainer}>
         {selectedTab === 'Pending' && (
           <>
@@ -344,7 +344,7 @@ setBookings([]); // Prevent UI from going blank while loading
             </TouchableOpacity>
           </>
         )}
-
+  
         {selectedTab === 'Confirmed' && (
           <TouchableOpacity
             style={[styles.actionButton, styles.completeButton]}
@@ -354,7 +354,7 @@ setBookings([]); // Prevent UI from going blank while loading
             <Text style={styles.buttonText}>Complete Job</Text>
           </TouchableOpacity>
         )}
-
+  
         {(selectedTab === 'Completed' || selectedTab === 'Rejected') && (
           <TouchableOpacity
             style={[styles.actionButton, styles.deleteButton]}
@@ -369,11 +369,10 @@ setBookings([]); // Prevent UI from going blank while loading
           </TouchableOpacity>
         )}
       </View>
-
+  
       <Text style={styles.tapHint}>Tap card for details →</Text>
     </TouchableOpacity>
   );
-
   if (loading) {
     return (
       <View style={styles.loadingOverlay}>
@@ -556,112 +555,170 @@ const styles = StyleSheet.create({
   activeTabText: {
     color: '#1a237e',
   },
-  bookingCard: {
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    margin: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: '#eee',
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  profileImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 12,
-  },
+  // Replace the existing bookingCard style with this:
+bookingCard: {
+  backgroundColor: '#fff',
+  borderRadius: 12,
+  margin: 12,
+  padding: 0, // Remove padding here as we'll add it to internal containers
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 4,
+  elevation: 3,
+  borderWidth: 1,
+  borderColor: '#e0e0e0',
+  overflow: 'hidden', // This will ensure content respects the border radius
+},
+cardHeaderContainer: {
+  backgroundColor: '#f5f7ff', // Light blue background
+  padding: 16,
+  borderBottomWidth: 1,
+  borderBottomColor: '#e0e0e0',
+},
+ // Update the existing cardHeader style:
+cardHeader: {
+  flexDirection: 'row',
+  alignItems: 'center',
+},
+ // Update the profileImage style:
+profileImage: {
+  width: 56,
+  height: 56,
+  borderRadius: 28,
+  marginRight: 12,
+  borderWidth: 2,
+  borderColor: '#fff',
+},
   headerTextContainer: {
     flex: 1,
   },
   clientName: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#2c3e50',
+    color: '#1a237e',
+    marginBottom: 2,
   },
+  
+  // Update the serviceName style:
   serviceName: {
     fontSize: 14,
-    color: '#7f8c8d',
+    color: '#616161',
+    fontWeight: '500',
   },
   chevron: {
     marginLeft: 'auto',
   },
-  detailsContainer: {
-    marginTop: 12,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  detailText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#666',
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 8,
-  },
-  statusText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  actionContainer: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 15,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    flex: 1,
-    justifyContent: 'center',
-    gap: 8,
-  },
-  acceptButton: {
-    backgroundColor: '#4CAF50',
-  },
-  rejectButton: {
-    backgroundColor: '#E53935',
-  },
-  completeButton: {
-    backgroundColor: '#1a237e',
-  },
-  deleteButton: {
-    backgroundColor: '#c62828',
-  },
+// Update the detailsContainer style:
+detailsContainer: {
+  padding: 16,
+  backgroundColor: '#fff',
+},
+
+// Update the detailRow style:
+detailRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  marginBottom: 12,
+},
+
+// Update the detailText style:
+detailText: {
+  marginLeft: 8,
+  fontSize: 15,
+  color: '#424242',
+  flex: 1,
+},
+  // Update the statusRow style:
+statusRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  marginTop: 4,
+  marginBottom: 8,
+},
+
+// Update the statusDot style:
+statusDot: {
+  width: 8,
+  height: 8,
+  borderRadius: 4,
+  marginRight: 6,
+},
+
+// Update the statusText style:
+statusText: {
+  fontSize: 14,
+  fontWeight: '600',
+},
+
+  // Update the actionContainer style:
+actionContainer: {
+  flexDirection: 'row',
+  gap: 12,
+  padding: 16,
+  paddingTop: 8,
+  borderTopWidth: 1,
+  borderTopColor: '#eaeaea',
+},
+
+// Update the actionButton style:
+actionButton: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  paddingVertical: 10,
+  paddingHorizontal: 16,
+  borderRadius: 8,
+  flex: 1,
+  justifyContent: 'center',
+  gap: 8,
+},
+ // Update these button styles:
+acceptButton: {
+  backgroundColor: '#4CAF50',
+  shadowColor: '#4CAF50',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.3,
+  shadowRadius: 3,
+  elevation: 2,
+},
+rejectButton: {
+  backgroundColor: '#E53935',
+  shadowColor: '#E53935',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.3,
+  shadowRadius: 3,
+  elevation: 2,
+},
+completeButton: {
+  backgroundColor: '#1a237e',
+  shadowColor: '#1a237e',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.3,
+  shadowRadius: 3,
+  elevation: 2,
+},
+deleteButton: {
+  backgroundColor: '#c62828',
+  shadowColor: '#c62828',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.3,
+  shadowRadius: 3,
+  elevation: 2,
+},
   buttonText: {
     color: '#fff',
-    fontWeight: '500',
+    fontWeight: '600',
     fontSize: 14,
   },
-  tapHint: {
-    color: '#1a237e',
-    fontSize: 12,
-    marginTop: 10,
-    textAlign: 'right',
-    opacity: 0.7,
-  },
+  // Update the tapHint style:
+tapHint: {
+  color: '#8c94a8',
+  fontSize: 12,
+  padding: 12,
+  paddingTop: 0,
+  textAlign: 'right',
+  fontStyle: 'italic',
+},
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

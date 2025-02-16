@@ -231,11 +231,17 @@ const CompleteProfileScreen = ({ route, navigation }) => {
         <View style={styles.inputContainer}>
   <Icon name="info" size={20} color="#7F8C8D" style={styles.icon} />
   <TextInput
-    style={styles.input}
-    placeholder="Enter a description about your business"
-    value={description}
-    onChangeText={setDescription}
-  />
+  style={styles.input}
+  placeholder="Briefly describe your business (max 100 words)"
+  value={description}
+  onChangeText={(text) => {
+    if (text.split(" ").length <= 50) {
+      setDescription(text);
+    }
+  }}
+  multiline
+/>
+
 </View>
 
         <View style={styles.inputContainer}>

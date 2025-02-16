@@ -137,7 +137,9 @@ const NotificationDetailScreen = ({ route }) => {
               {formatNotificationMessage(notification.message).map((item, index) => (
                 <View key={index} style={styles.messageRow}>
                   <Text style={styles.messageLabel}>{item.label}:</Text>
-                  <Text style={styles.messageValue}>{item.value}</Text>
+                  <View style={styles.messageValueContainer}>
+                    <Text style={styles.messageValue}>{item.value}</Text>
+                  </View>
                 </View>
               ))}
             </View>
@@ -271,21 +273,24 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   messageRow: {
-    flexDirection: "row",
-    marginBottom: 10,
-    alignItems: "center",
+    flexDirection: "column",
+    marginBottom: 16,
   },
   messageLabel: {
     fontSize: 16,
     fontWeight: "600",
     color: "#1a237e",
-    marginRight: 10,
-    width: 120,
+    marginBottom: 6,
+  },
+  messageValueContainer: {
+    backgroundColor: "#f0f0f7",
+    borderRadius: 6,
+    padding: 8,
   },
   messageValue: {
-    fontSize: 16,
+    fontSize: 15,
     color: "#333",
-    flex: 1,
+    flexShrink: 1,
   },
 });
 

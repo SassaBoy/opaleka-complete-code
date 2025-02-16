@@ -1,36 +1,47 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, ScrollView, SafeAreaView, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width } = Dimensions.get('window');
 
 const SupportScreen = ({ navigation }) => {
   const handleEmailPress = () => {
-    Linking.openURL('mailto:info@opaleka.com');
+    Linking.openURL('mailto:info@opaleka.com').catch(err => {
+      console.error('Could not open email app', err);
+    });
   };
 
   const handleCallPress = () => {
-    Linking.openURL('tel:+264816889761');
+    Linking.openURL('tel:+264816889761').catch(err => {
+      console.error('Could not open phone app', err);
+    });
   };
 
   const supportItems = [
     {
       title: 'Benefits of using Opaleka',
       screen: 'Benefits',
-      icon: 'gift-outline'
+      icon: 'gift-outline',
+      gradient: ['#4CAF50', '#2E7D32'],
     },
     {
       title: 'Frequently Asked Questions',
       screen: 'FAQScreen',
-      icon: 'help-circle-outline'
+      icon: 'help-circle-outline',
+      gradient: ['#2196F3', '#1565C0'],
     },
     {
       title: 'Terms and Conditions',
       screen: 'Terms',
-      icon: 'document-text-outline'
+      icon: 'document-text-outline',
+      gradient: ['#FF9800', '#EF6C00'],
     },
     {
       title: 'Privacy Policy',
       screen: 'Privacy',
-      icon: 'shield-checkmark-outline'
+      icon: 'shield-checkmark-outline',
+      gradient: ['#9C27B0', '#7B1FA2'],
     }
   ];
 
@@ -56,7 +67,9 @@ const SupportScreen = ({ navigation }) => {
   ];
 
   const handleSocialPress = (url) => {
-    Linking.openURL(url);
+    Linking.openURL(url).catch(err => {
+      console.error('Could not open URL', err);
+    });
   };
 
   return (
@@ -65,13 +78,18 @@ const SupportScreen = ({ navigation }) => {
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}
+          accessibilityLabel="Go back"
         >
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Support</Text>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Help Center</Text>
           {supportItems.map((item, index) => (
@@ -79,9 +97,17 @@ const SupportScreen = ({ navigation }) => {
               key={index}
               style={styles.card}
               onPress={() => navigation.navigate(item.screen)}
+              accessibilityLabel={item.title}
             >
-              <View style={styles.cardContent}>
-                <Ionicons name={item.icon} size={24} color="#1a237e" style={styles.cardIcon} />
+              <LinearGradient
+                colors={item.gradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.iconContainer}
+              >
+                <Ionicons name={item.icon} size={24} color="#fff" />
+              </LinearGradient>
+              <View style={styles.cardTextContainer}>
                 <Text style={styles.cardText}>{item.title}</Text>
               </View>
               <Ionicons name="chevron-forward" size={24} color="#1a237e" />
@@ -92,31 +118,49 @@ const SupportScreen = ({ navigation }) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Contact Us</Text>
           <View style={styles.card}>
-            <TouchableOpacity style={styles.contactItem} onPress={handleEmailPress}>
-              <View style={styles.contactContent}>
-                <Ionicons name="mail" size={24} color="#1a237e" />
-                <View style={styles.contactTextContainer}>
-                  <Text style={styles.contactLabel}>Send email</Text>
-                  <Text style={styles.contactValue}>info@opaleka.com</Text>
-                </View>
+            <TouchableOpacity 
+              style={styles.contactItem} 
+              onPress={handleEmailPress}
+              accessibilityLabel="Send email to Opaleka"
+            >
+              <LinearGradient
+                colors={['#F44336', '#C62828']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.contactIconContainer}
+              >
+                <Ionicons name="mail" size={24} color="#fff" />
+              </LinearGradient>
+              <View style={styles.contactTextContainer}>
+                <Text style={styles.contactLabel}>Send email</Text>
+                <Text style={styles.contactValue}>info@opaleka.com</Text>
               </View>
             </TouchableOpacity>
           </View>
 
           <View style={styles.card}>
-            <TouchableOpacity style={styles.contactItem} onPress={handleCallPress}>
-              <View style={styles.contactContent}>
-                <Ionicons name="call" size={24} color="#1a237e" />
-                <View style={styles.contactTextContainer}>
-                  <Text style={styles.contactLabel}>Call for support</Text>
-                  <Text style={styles.contactValue}>+264 81 688 9761</Text>
-                </View>
+            <TouchableOpacity 
+              style={styles.contactItem} 
+              onPress={handleCallPress}
+              accessibilityLabel="Call Opaleka support"
+            >
+              <LinearGradient
+                colors={['#2196F3', '#1565C0']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.contactIconContainer}
+              >
+                <Ionicons name="call" size={24} color="#fff" />
+              </LinearGradient>
+              <View style={styles.contactTextContainer}>
+                <Text style={styles.contactLabel}>Call for support</Text>
+                <Text style={styles.contactValue}>+264 81 688 9761</Text>
               </View>
             </TouchableOpacity>
           </View>
         </View>
 
-        <View style={styles.section}>
+        <View style={[styles.section, styles.lastSection]}>
           <Text style={styles.sectionTitle}>Connect With Us</Text>
           <View style={styles.socialCard}>
             {socialLinks.map((social, index) => (
@@ -124,8 +168,9 @@ const SupportScreen = ({ navigation }) => {
                 key={index}
                 style={styles.socialButton}
                 onPress={() => handleSocialPress(social.url)}
+                accessibilityLabel={`Visit our ${social.name} page`}
               >
-                <View style={[styles.socialIconContainer, { backgroundColor: `${social.color}10` }]}>
+                <View style={[styles.socialIconContainer, { backgroundColor: `${social.color}20` }]}>
                   <Ionicons name={social.icon} size={24} color={social.color} />
                 </View>
                 <Text style={[styles.socialText, { color: social.color }]}>{social.name}</Text>
@@ -166,11 +211,17 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     letterSpacing: 0.5,
   },
-  content: {
+  scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 32,
   },
   section: {
     padding: 16,
+  },
+  lastSection: {
+    marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 18,
@@ -181,67 +232,81 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#ffffff',
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 12,
     padding: 16,
-    elevation: 2,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
-    shadowRadius: 3,
-  },
-  cardContent: {
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
   },
-  cardIcon: {
-    marginRight: 12,
+  iconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  cardTextContainer: {
+    flex: 1,
   },
   cardText: {
     fontSize: 16,
+    fontWeight: '600',
     color: '#333',
-    flex: 1,
+    letterSpacing: 0.2,
   },
   contactItem: {
     width: '100%',
-  },
-  contactContent: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+  contactIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
   contactTextContainer: {
-    marginLeft: 12,
+    flex: 1,
   },
   contactLabel: {
     fontSize: 16,
+    fontWeight: '600',
     color: '#333',
     marginBottom: 4,
   },
   contactValue: {
     fontSize: 14,
-    color: '#666',
+    color: '#546E7A',
+    letterSpacing: 0.2,
   },
   socialCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 20,
     flexDirection: 'row',
     justifyContent: 'space-around',
-    elevation: 2,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
-    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
   socialButton: {
     alignItems: 'center',
     padding: 8,
   },
   socialIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,

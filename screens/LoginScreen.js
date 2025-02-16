@@ -28,7 +28,9 @@ const LoginScreen = ({ route, navigation }) => {
   const redirectParams = route?.params?.params || {};
   
   const handleLogin = async () => {
+    setLoading(true); // Show loading state
     setError({}); // Clear any previous errors
+  
   
     if (!email) {
       setError((prev) => ({ ...prev, email: "Email is required." }));
@@ -178,12 +180,20 @@ const LoginScreen = ({ route, navigation }) => {
 
           {/* Login Button */}
           <TouchableOpacity
-            style={[styles.button, loading && { backgroundColor: "#9ea1c7" }]}
-            onPress={handleLogin}
-            disabled={loading}
-          >
-            <Text style={styles.buttonText}>{loading ? "Logging in..." : "Login"}</Text>
-          </TouchableOpacity>
+  style={[styles.button, loading && { backgroundColor: "#9ea1c7", flexDirection: "row", justifyContent: "center", alignItems: "center" }]}
+  onPress={handleLogin}
+  disabled={loading}
+>
+  {loading ? (
+    <>
+      <Icon name="autorenew" size={20} color="#fff" style={{ marginRight: 10 }} />
+      <Text style={styles.buttonText}>Logging in...</Text>
+    </>
+  ) : (
+    <Text style={styles.buttonText}>Login</Text>
+  )}
+</TouchableOpacity>
+
 
           {/* Forgot Password */}
           <TouchableOpacity
