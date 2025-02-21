@@ -11,6 +11,7 @@ import {
   Switch,
   Image,
 } from "react-native";
+import Toast from "react-native-toast-message";
 import { Picker } from "@react-native-picker/picker";
 import ModalDateTimePicker from "react-native-modal-datetime-picker";
 import Icon from "react-native-vector-icons/MaterialIcons";
@@ -44,6 +45,8 @@ const CompleteProfileScreen = ({ route, navigation }) => {
     tiktok: "",
   });
   const [images, setImages] = useState([]);
+const [loading, setLoading] = useState(false); // Add loading state
+
   const [timePicker, setTimePicker] = useState({
     isVisible: false,
     day: "",
@@ -120,8 +123,14 @@ const CompleteProfileScreen = ({ route, navigation }) => {
       },
     }));
   };
-
   const handleSubmit = async () => {
+    if (!isFormValid()) {
+      Alert.alert("Error", "Please fill in all required fields.");
+      return;
+    }
+  
+    setLoading(true); // Start loading
+  
     const profileData = new FormData();
   
     // Append basic fields
@@ -129,9 +138,9 @@ const CompleteProfileScreen = ({ route, navigation }) => {
     profileData.append("businessAddress", businessAddress);
     profileData.append("yearsOfExperience", yearsOfExperience);
     profileData.append("town", town);
-    profileData.append("services", JSON.stringify(services)); // Ensure services are stringified
-    profileData.append("operatingHours", JSON.stringify(operatingHours)); // Ensure operatingHours are stringified
-    profileData.append("socialLinks", JSON.stringify(socialLinks)); // Ensure socialLinks are stringified
+    profileData.append("services", JSON.stringify(services));
+    profileData.append("operatingHours", JSON.stringify(operatingHours));
+    profileData.append("socialLinks", JSON.stringify(socialLinks));
     profileData.append("description", description);
   
     // Append images
@@ -150,13 +159,13 @@ const CompleteProfileScreen = ({ route, navigation }) => {
         profileData,
         {
           headers: {
-            "Content-Type": "multipart/form-data", // Specify multipart/form-data for file uploads
+            "Content-Type": "multipart/form-data",
           },
         }
       );
   
       // If there are custom services, post them separately
-      const customServices = services.filter((service) => service.isCustom); // Assuming custom services are marked with `isCustom`
+      const customServices = services.filter((service) => service.isCustom);
       if (customServices.length > 0) {
         await Promise.all(
           customServices.map((service) =>
@@ -169,9 +178,18 @@ const CompleteProfileScreen = ({ route, navigation }) => {
         );
       }
   
-      // Show success alert and navigate to the next screen
-      Alert.alert("Success", response.data.message);
-      navigation.navigate("UploadDocuments", { email, profileData: response.data.profile });
+      // Show success toast
+      Toast.show({
+        type: "success",
+        text1: "Profile Completed",
+        text2: "Your account has been successfully created!",
+      });
+  
+      // Navigate to the next screen after a short delay
+      setTimeout(() => {
+        navigation.navigate("UploadDocuments", { email, profileData: response.data.profile });
+      }, 1000); // Add a small delay for better user experience
+  
     } catch (error) {
       console.error("Error completing profile:", error.message);
   
@@ -180,6 +198,9 @@ const CompleteProfileScreen = ({ route, navigation }) => {
         "Error",
         error.response?.data?.message || "Failed to complete profile. Please try again."
       );
+  
+    } finally {
+      setLoading(false); // Stop loading
     }
   };
   
@@ -204,9 +225,10 @@ const CompleteProfileScreen = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Toast />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Icon name="business" size={40} color="#00AEEF" />
+          <Icon name="business" size={40} color="#1a237e" />
           <Text style={styles.title}>Complete Your Profile</Text>
         </View>
 
@@ -228,21 +250,21 @@ const CompleteProfileScreen = ({ route, navigation }) => {
             ))}
           </Picker>
         </View>
-        <View style={styles.inputContainer}>
-  <Icon name="info" size={20} color="#7F8C8D" style={styles.icon} />
+        <View style={[styles.inputContainer, { height: 120, alignItems: "center", paddingTop: 8 }]}>
+  <Icon name="info" size={20} color="#7F8C8D" style={[styles.icon, { marginTop: -55 }]} />
   <TextInput
-  style={styles.input}
-  placeholder="Briefly describe your business (max 100 words)"
-  value={description}
-  onChangeText={(text) => {
-    if (text.split(" ").length <= 50) {
-      setDescription(text);
-    }
-  }}
-  multiline
-/>
-
+    style={[styles.input, { height: 100, textAlignVertical: "top", paddingTop: 8 }]}
+    placeholder="Briefly describe your business (max 100 words)"
+    value={description}
+    onChangeText={(text) => {
+      if (text.split(" ").length <= 50) {
+        setDescription(text);
+      }
+    }}
+    multiline
+  />
 </View>
+
 
         <View style={styles.inputContainer}>
           <Icon name="history" size={20} color="#7F8C8D" style={styles.icon} />
@@ -346,12 +368,24 @@ const CompleteProfileScreen = ({ route, navigation }) => {
         </ScrollView>
 
         <TouchableOpacity
-          style={[styles.button, !isFormValid() && styles.disabledButton]}
-          onPress={handleSubmit}
-          disabled={!isFormValid()}
-        >
-          <Text style={styles.buttonText}>Complete Profile</Text>
-        </TouchableOpacity>
+  style={[
+    styles.button,
+    !isFormValid() && styles.disabledButton,
+    loading && { backgroundColor: "#9ea1c7", flexDirection: "row", justifyContent: "center", alignItems: "center" }
+  ]}
+  onPress={handleSubmit}
+  disabled={!isFormValid() || loading}
+>
+  {loading ? (
+    <>
+      <Icon name="autorenew" size={20} color="#fff" style={{ marginRight: 10 }} />
+      <Text style={styles.buttonText}>Submitting...</Text>
+    </>
+  ) : (
+    <Text style={styles.buttonText}>Complete Profile</Text>
+  )}
+</TouchableOpacity>
+
       </ScrollView>
     </SafeAreaView>
   );

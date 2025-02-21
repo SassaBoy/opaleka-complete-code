@@ -9,6 +9,8 @@ const path = require("path");
 const mongoose = require("mongoose");
 const Notification = require("../models/notificationModel");
 const Service = require("../models/serviceModel");
+const Booking = require("../models/BookingSchema");
+const Review = require("../models/Review");
 
 // Register User
 exports.registerUser = async (req, res) => {
@@ -979,88 +981,56 @@ exports.getUserDetails1 = async (req, res) => {
   try {
     const userId = req.user.id;
     
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: "User ID is required."
-      });
+    // Validate userId format
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user ID format" });
     }
-        // Validate userId
-        if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-          return res.status(400).json({
-            success: false,
-            message: "Invalid user ID.",
-          });
-        }
-    // Select specific fields for user including the unencrypted password field if it exists
+
+    // Get user with password fields
     const user = await User.findById(userId)
-      .select('name email password unencryptedPassword phone profileImage role createdAt')
-      .lean();
-    
-    if (!user) {
-      return res.status(400).json({
-        success: false,
-        message: "User not found."
-      });
-    }
-    
-    let responseData = {
-      success: true,
-      user: {
-        name: user.name,
-        email: user.email,
-        password: user.password,
-        unencryptedPassword: user.unencryptedPassword || "••••••••", // Include this field
-        phone: user.phone,
-        profileImage: user.profileImage,
-        role: user.role,
-        createdAt: user.createdAt
-      }
-    };
-    
-   // Only fetch complete profile for Providers
-if (user.role === "Provider") {
-  const completeProfile = await CompleteProfile.findOne({ userId })
-    .select('businessAddress town yearsOfExperience services operatingHours socialLinks')
-    .lean();
+  .select('-password') // Exclude password field
+  .lean();
 
-  if (completeProfile) {
-    responseData.user.completeProfile = {
-      businessAddress: completeProfile.businessAddress,
-      town: completeProfile.town,
-      yearsOfExperience: completeProfile.yearsOfExperience,
-      services: completeProfile.services,
-      operatingHours: completeProfile.operatingHours || {
-        Monday: { start: null, end: null, isClosed: true },
-        Tuesday: { start: null, end: null, isClosed: true },
-        Wednesday: { start: null, end: null, isClosed: true },
-        Thursday: { start: null, end: null, isClosed: true },
-        Friday: { start: null, end: null, isClosed: true },
-        Saturday: { start: null, end: null, isClosed: true },
-        Sunday: { start: null, end: null, isClosed: true },
-      },
-      
-      socialLinks: completeProfile.socialLinks || {
-        facebook: "",
-        twitter: "",
-        instagram: "",
-        linkedin: "",
-      },
-    };
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const completeProfile = await CompleteProfile.findOne({ userId }).lean();
+
+const response = {
+  success: true,
+  user: {
+    ...user,
+    completeProfile: completeProfile || null, // Ensure it’s included
+    businessName: user.businessName || ""
   }
+};
 
-  // Include businessName from the User model
-  responseData.user.businessName = user.businessName || "";
-}
 
-    return res.status(200).json(responseData);
-    
+    // Add complete profile for providers
+    if (user.role === "Provider") {
+      const completeProfile = await CompleteProfile.findOne({ userId })
+        .select('businessAddress town yearsOfExperience services operatingHours socialLinks images')
+        .lean();
+
+        response.user = {
+          ...response.user,
+          completeProfile: completeProfile || {
+            businessAddress: "",
+            town: "",
+            yearsOfExperience: "",
+            services: [],
+            operatingHours: defaultOperatingHours,
+            socialLinks: defaultSocialLinks,
+            images: []
+          }
+        };
+        
+    }
+
+    res.status(200).json(response);
   } catch (error) {
-    console.error("Error in getUserDetails:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error while fetching user details."
-    });
+    console.error("Error in getUserDetails1:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -1485,7 +1455,7 @@ exports.getCategories = async (req, res) => {
 
 exports.getVerifiedProviders = async (req, res) => {
   try {
-    const { serviceName, location } = req.query;
+    const { serviceName, location, sortBy } = req.query; // ✅ Get sortBy from request
 
     if (!serviceName) {
       return res.status(400).json({
@@ -1494,7 +1464,7 @@ exports.getVerifiedProviders = async (req, res) => {
       });
     }
 
-    // Query for verified providers
+    // Query for verified providers (Free or Paid, but NOT unpaid)
     const verifiedProviders = await ProviderDetails.find({
       verificationStatus: "Verified",
       $or: [
@@ -1507,11 +1477,36 @@ exports.getVerifiedProviders = async (req, res) => {
       select: "name profileImage email"
     });
 
-    // Fetch corresponding CompleteProfile records
+    // Fetch corresponding CompleteProfile records (filtering by service name)
     const completeProfiles = await CompleteProfile.find({
       userId: { $in: verifiedProviders.map(provider => provider.userId._id) },
       "services.name": serviceName
     });
+
+    // Fetch completed bookings and reviews
+    const bookings = await Booking.find({
+      providerId: { $in: verifiedProviders.map(provider => provider.userId._id) },
+      status: "completed"
+    });
+
+    const reviews = await Review.find({
+      providerId: { $in: verifiedProviders.map(provider => provider.userId._id) }
+    });
+
+    // Map bookings and reviews
+    const bookingMap = bookings.reduce((map, booking) => {
+      map[booking.providerId] = (map[booking.providerId] || 0) + 1;
+      return map;
+    }, {});
+
+    const reviewMap = reviews.reduce((map, review) => {
+      if (!map[review.providerId]) {
+        map[review.providerId] = { total: 0, sum: 0 };
+      }
+      map[review.providerId].total += 1;
+      map[review.providerId].sum += review.rating;
+      return map;
+    }, {});
 
     const profileMap = completeProfiles.reduce((map, profile) => {
       map[profile.userId.toString()] = {
@@ -1533,9 +1528,58 @@ exports.getVerifiedProviders = async (req, res) => {
       return true;
     });
 
-    // Always return a 200 status with providers array (empty if none found)
-    const formattedProviders = filteredProviders.map(provider => {
+    // Sort Providers based on:
+    // 1. Paid Plan (Paid > Free)
+    // 2. Completed Bookings (More > Less)
+    // 3. Average Rating (Higher > Lower)
+    const sortedProviders = filteredProviders
+      .map(provider => {
+        // Find service price from the complete profile
+        const matchingService = completeProfiles.find(profile =>
+          profile.userId.toString() === provider.userId._id.toString()
+        )?.services.find(service => service.name === serviceName);
+
+        return {
+          ...provider.toObject(),
+          servicePrice: matchingService ? parseFloat(matchingService.price) : Infinity, // Default high if missing
+        };
+      })
+      .sort((a, b) => {
+        const aPaid = a.paymentStatus === "Paid" ? 1 : 0;
+        const bPaid = b.paymentStatus === "Paid" ? 1 : 0;
+
+        const aCompletedBookings = bookingMap[a.userId._id] || 0;
+        const bCompletedBookings = bookingMap[b.userId._id] || 0;
+
+        const aAvgRating =
+          reviewMap[a.userId._id]?.total > 0
+            ? reviewMap[a.userId._id].sum / reviewMap[a.userId._id].total
+            : 0;
+
+        const bAvgRating =
+          reviewMap[b.userId._id]?.total > 0
+            ? reviewMap[b.userId._id].sum / reviewMap[b.userId._id].total
+            : 0;
+
+        if (sortBy === "priceLow") return a.servicePrice - b.servicePrice; // ✅ Sort Low to High
+        if (sortBy === "priceHigh") return b.servicePrice - a.servicePrice; // ✅ Sort High to Low
+        if (sortBy === "ratingHigh") return bAvgRating - aAvgRating; // ✅ Sort by Rating High to Low
+
+        return (
+          bPaid - aPaid || // Paid Plans First
+          bCompletedBookings - aCompletedBookings || // More Bookings First
+          bAvgRating - aAvgRating // Higher Rating First
+        );
+      });
+
+    const formattedProviders = sortedProviders.map(provider => {
       const profile = profileMap[provider.userId._id.toString()] || {};
+
+      // Extract the price of the selected service (if it exists)
+      const selectedService = completeProfiles.find(
+        profile => profile.userId.toString() === provider.userId._id.toString()
+      )?.services.find(service => service.name === serviceName);
+
       return {
         id: provider.userId._id,
         name: provider.userId.name,
@@ -1544,14 +1588,20 @@ exports.getVerifiedProviders = async (req, res) => {
         businessAddress: profile.businessAddress,
         description: profile.description,
         town: profile.town || "No location specified",
-        rating: 0,
-        reviews: 0
+        completedBookings: bookingMap[provider.userId._id] || 0,
+        avgRating:
+          reviewMap[provider.userId._id]?.total > 0
+            ? reviewMap[provider.userId._id].sum / reviewMap[provider.userId._id].total
+            : 0,
+        paymentStatus: provider.paymentStatus,
+        servicePrice: selectedService ? selectedService.price : null, // ✅ Include price
+        priceType: selectedService ? selectedService.priceType : "N/A", // ✅ Include price type
       };
     });
 
     return res.status(200).json({
       success: true,
-      message: filteredProviders.length ? "Providers retrieved successfully." : "No providers found.",
+      message: sortedProviders.length ? "Providers retrieved successfully." : "No providers found.",
       providers: formattedProviders
     });
 
@@ -1564,6 +1614,7 @@ exports.getVerifiedProviders = async (req, res) => {
     });
   }
 };
+
 
 
 exports.getProviderDetails = async (req, res) => {
@@ -1609,6 +1660,7 @@ exports.getProviderDetails = async (req, res) => {
 
     // Construct response data
     const responseData = {
+      _id: user._id, // ✅ ADD THIS
       name: user.name,
       profileImage: user.profileImage,
       verified: providerDetails.verificationStatus === "Verified",
@@ -2019,5 +2071,50 @@ exports.deleteAccount = async (req, res) => {
       success: false,
       message: "Failed to delete account.",
     });
+  }
+};
+
+
+exports.getProviderReviews = async (req, res) => {
+  try {
+    let { providerId } = req.params;
+    console.log("Fetching reviews for Provider ID:", providerId); // ✅ Log Provider ID
+
+    // Ensure providerId is in the correct format (ObjectId)
+    if (!mongoose.Types.ObjectId.isValid(providerId)) {
+      return res.status(400).json({ success: false, message: "Invalid Provider ID format" });
+    }
+
+    providerId = new mongoose.Types.ObjectId(providerId);
+
+    // Fetch reviews for the provider
+    const reviews = await Review.find({ providerId })
+      .populate({
+        path: "userId",
+        select: "name profileImage",
+      })
+      .sort({ createdAt: -1 });
+
+      console.log("Fetched Reviews:", JSON.stringify(reviews, null, 2));
+
+
+    if (!reviews.length) {
+      console.warn(`No reviews found for provider ${providerId}`);
+    }
+
+    res.status(200).json({
+      success: true,
+      reviews: reviews.map((review) => ({
+        ...review._doc, 
+        review: String(review.review) // Convert to string before sending
+      })),      
+      reviewCount: reviews.length,
+      averageRating: reviews.length
+        ? (reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length).toFixed(1)
+        : "0.0",
+    });
+  } catch (error) {
+    console.error("Error fetching provider reviews:", error);
+    res.status(500).json({ message: "Failed to fetch reviews" });
   }
 };

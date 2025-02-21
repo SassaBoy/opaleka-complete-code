@@ -1,7 +1,7 @@
 const express = require("express");
 const multer = require("multer");
 const path = require("path");
-const { registerUser, loginUser, getUserDetails,getCategories, updateProfilePicture,getUnreadNotificationCount,sendNotification,searchUsers,getNotifications, getUserDetails1,getVerifiedProviders, updateUserDetails, logout, requestPasswordReset, resetPassword, completeProfile, uploadDocuments, verifyDocuments, updatePaymentStatus, markNotificationAsRead, uploadService, getServices, getPendingProviders, searchPendingProviders, getProviderDetails, getProviderServiceDetails, addCustomService, adminSearchToDelete, deleteUser, getClientsCount, getProvidersCount, getFreeProvidersCount, getAllUsersCount, deleteNotificationByUser, deleteAccount } = require("../controllers/authController");
+const { registerUser, loginUser, getUserDetails,getCategories, updateProfilePicture,getUnreadNotificationCount,sendNotification,searchUsers,getNotifications, getUserDetails1,getVerifiedProviders, updateUserDetails, logout, requestPasswordReset, resetPassword, completeProfile, uploadDocuments, verifyDocuments, updatePaymentStatus, markNotificationAsRead, uploadService, getServices, getPendingProviders, searchPendingProviders, getProviderDetails, getProviderServiceDetails, addCustomService, adminSearchToDelete, deleteUser, getClientsCount, getProvidersCount, getFreeProvidersCount, getAllUsersCount, deleteNotificationByUser, deleteAccount, getProviderReviews } = require("../controllers/authController");
 const { protect } = require("../middleware/authMiddleware");
 const User = require("../models/userModel");
 
@@ -242,5 +242,7 @@ router.delete("/notifications/:notificationId", protect, deleteNotificationByUse
 
 // Delete Account Route
 router.delete("/delete-account", protect, deleteAccount);
+
+router.get('/:providerId/reviews', getProviderReviews);
 
 module.exports = router;

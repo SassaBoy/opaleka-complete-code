@@ -49,55 +49,74 @@ const UserAccount = ({ route }) => {
     fetchUserDetails();
   }, []);
 
-
   const fetchUserDetails = async () => {
     try {
       const token = await AsyncStorage.getItem("authToken");
-      if (!token) {
-        console.log("No token found. Logging out the user.");
-        setIsLoggedIn(false);
-        setUserDetails(null);
-        return;
-      }
-  
       const response = await fetch(
-        `https://service-booking-backend-eb9i.onrender.com/api/auth/user-details`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        "http://192.168.8.138:5001/api/auth/get-user",
+        { headers: { Authorization: `Bearer ${token}` } }
       );
   
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.user) {
           setUserDetails(data.user);
-          // Initialize editable fields with user data
-          setEditableFields({
+          
+          // Initialize all fields with proper defaults
+          const defaultFields = {
             name: data.user.name,
             email: data.user.email,
-            phone: data.user.phone,
-            ...(data.user.completeProfile && {
-              businessAddress: data.user.completeProfile.businessAddress,
-              town: data.user.completeProfile.town,
-              yearsOfExperience: data.user.completeProfile.yearsOfExperience,
-              services: data.user.completeProfile.services || [],
-              operatingHours: data.user.completeProfile.operatingHours || {},
-              socialLinks: data.user.completeProfile.socialLinks || {}
-            })
-          });
+            phone: data.user.phone || "",
+            businessAddress: "",
+            town: "",
+            yearsOfExperience: "",
+            services: [],
+            operatingHours: {
+              Monday: { start: null, end: null, isClosed: false },
+              Tuesday: { start: null, end: null, isClosed: false },
+              Wednesday: { start: null, end: null, isClosed: false },
+              Thursday: { start: null, end: null, isClosed: false },
+              Friday: { start: null, end: null, isClosed: false },
+              Saturday: { start: null, end: null, isClosed: false },
+              Sunday: { start: null, end: null, isClosed: false }
+            },
+            socialLinks: {
+              facebook: "",
+              twitter: "",
+              instagram: "",
+              linkedin: ""
+            }
+          };
+  
+       // Merge with existing profile data if available
+if (data.user.completeProfile) {
+  defaultFields.businessAddress = data.user.completeProfile.businessAddress || "";
+  defaultFields.town = data.user.completeProfile.town || "";
+  defaultFields.yearsOfExperience = data.user.completeProfile.yearsOfExperience || "";
+  defaultFields.services = data.user.completeProfile.services?.map(s => ({
+    name: s.name,
+    category: s.category,
+    price: s.price.toString(),
+    priceType: s.priceType
+  })) || [];
+  defaultFields.operatingHours = data.user.completeProfile.operatingHours || defaultFields.operatingHours;
+  defaultFields.socialLinks = data.user.completeProfile.socialLinks || defaultFields.socialLinks;
+}
+  
+          setEditableFields(defaultFields);
         }
-      } else {
-        throw new Error("Failed to fetch user details");
       }
     } catch (error) {
-      console.error("Error fetching user details:", error.message);
+      console.error("Fetch error:", error);
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to load profile data"
+      });
     } finally {
       setLoading(false);
     }
   };
-
   const uploadProfilePicture = async (uri) => {
     try {
       const token = await AsyncStorage.getItem("authToken");
@@ -111,7 +130,7 @@ const UserAccount = ({ route }) => {
       });
   
       const response = await fetch(
-        `https://service-booking-backend-eb9i.onrender.com/api/auth/update-profile-picture/${userDetails.id}`,
+        `http://192.168.8.138:5001/api/auth/update-profile-picture/${userDetails.id}`,
         {
           method: "PUT",
           headers: {
@@ -404,62 +423,54 @@ const UserAccount = ({ route }) => {
         </View>
   
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Operating Hours</Text>
-          {Object.entries(editableFields.operatingHours || {}).map(([day, hours]) => (
-            <View key={day} style={styles.hourRow}>
-              <Text style={styles.dayName}>{day}</Text>
-              {editing ? (
-                <View style={styles.hoursInputContainer}>
-                  <Switch
-                    value={!hours.isClosed}
-                    onValueChange={() => toggleDayClosed(day)}
-                  />
-                  {!hours.isClosed && (
-                    <>
-                      <TouchableOpacity
-                        style={styles.timeInput}
-                        onPress={() => {
-                          setActiveTimeField(`${day}.start`);
-                          setSelectedTime(new Date());
-                          setShowTimePicker(true);
-                        }}
-                      >
-                        <Text>{hours.start || 'Select Start Time'}</Text>
-                      </TouchableOpacity>
-                      <Text> - </Text>
-                      <TouchableOpacity
-                        style={styles.timeInput}
-                        onPress={() => {
-                          setActiveTimeField(`${day}.end`);
-                          setSelectedTime(new Date());
-                          setShowTimePicker(true);
-                        }}
-                      >
-                        <Text>{hours.end || 'Select End Time'}</Text>
-                      </TouchableOpacity>
-                    </>
-                  )}
-                </View>
-              ) : (
-                <Text style={styles.hours}>
-                  {hours.isClosed ? 'Closed' : `${hours.start || 'Not Set'} - ${hours.end || 'Not Set'}`}
+  <Text style={styles.sectionTitle}>Operating Hours</Text>
+  {Object.entries(editableFields.operatingHours || {}).map(([day, hours]) => (
+    <View key={day} style={styles.hourRow}>
+      <Text style={styles.dayName}>{day}</Text>
+      {editing ? (
+        <View style={styles.hoursInputContainer}>
+          <Switch
+            value={!hours.isClosed}
+            onValueChange={() => toggleDayClosed(day)}
+            trackColor={{ false: "#767577", true: "#81b0ff" }}
+            thumbColor={hours.isClosed ? "#f4f3f4" : "#f4f3f4"}
+          />
+          {!hours.isClosed && (
+            <>
+              <TouchableOpacity
+                style={styles.timeInput}
+                onPress={() => {
+                  setActiveTimeField(`${day}.start`);
+                  setShowTimePicker(true);
+                }}
+              >
+                <Text style={styles.timeText}>
+                  {hours.start || 'Set Start'}
                 </Text>
-              )}
-            </View>
-          ))}
-          {showTimePicker && (
-            <DateTimePicker
-              value={selectedTime}
-              mode="time"
-              is24Hour={true}
-              display="default"
-              onChange={handleTimeChange}
-            />
-          )}
-          {editableFields.errors?.operatingHours && (
-            <Text style={styles.errorText}>{editableFields.errors.operatingHours}</Text>
+              </TouchableOpacity>
+              <Text style={styles.timeSeparator}>-</Text>
+              <TouchableOpacity
+                style={styles.timeInput}
+                onPress={() => {
+                  setActiveTimeField(`${day}.end`);
+                  setShowTimePicker(true);
+                }}
+              >
+                <Text style={styles.timeText}>
+                  {hours.end || 'Set End'}
+                </Text>
+              </TouchableOpacity>
+            </>
           )}
         </View>
+      ) : (
+        <Text style={styles.hours}>
+          {hours.isClosed ? 'Closed' : `${hours.start || '--:--'} to ${hours.end || '--:--'}`}
+        </Text>
+      )}
+    </View>
+  ))}
+</View>
   
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Social Media</Text>
@@ -586,7 +597,7 @@ const UserAccount = ({ route }) => {
       }
   
       const response = await fetch(
-        `https://service-booking-backend-eb9i.onrender.com/api/auth/update-user/${userDetails.id}`,
+        `http://192.168.8.138:5001/api/auth/update-user/${userDetails.id}`,
         {
           method: "PUT",
           headers: {
@@ -691,14 +702,15 @@ const UserAccount = ({ route }) => {
               style={styles.profileImageContainer}
               onPress={() => setBottomSidebarVisible(true)}
             >
-              <Image
-                source={{
-                  uri: userDetails?.profileImage
-                    ? `https://service-booking-backend-eb9i.onrender.com/${userDetails.profileImage}`
-                    : "https://service-booking-backend-eb9i.onrender.com/uploads/default-profile.png",
-                }}
-                style={styles.profileImage}
-              />
+<Image
+  source={{
+    uri: userDetails?.profileImage
+      ? `http://192.168.8.138:5001/${userDetails.profileImage.replace(/\\/g, "/")}`
+      : "http://192.168.8.138:5001/uploads/default-profile.png",
+  }}
+  style={styles.profileImage}
+  resizeMode="cover"
+/>
               <View style={styles.editOverlay}>
                 <MaterialIcons name="camera-alt" size={24} color="white" />
               </View>
@@ -709,6 +721,24 @@ const UserAccount = ({ route }) => {
             </View>
           </View>
 
+          <View style={styles.profileStatusContainer}>
+  <View style={[
+    styles.statusBadge,
+    userDetails?.completeProfile ? styles.completeBadge : styles.incompleteBadge
+  ]}>
+    <MaterialIcons 
+      name={userDetails?.completeProfile ? "verified" : "error-outline"} 
+      size={16} 
+      color={userDetails?.completeProfile ? "#4CAF50" : "#FFC107"} 
+    />
+    <Text style={[
+      styles.statusText,
+      { color: userDetails?.completeProfile ? "#4CAF50" : "#FFC107" }
+    ]}>
+      {userDetails?.completeProfile ? "Complete Profile" : "Incomplete Profile"}
+    </Text>
+  </View>
+</View>
           <View style={styles.content}>
             <View style={styles.contentHeader}>
               <Text style={styles.contentTitle}>Profile Details</Text>
@@ -1056,7 +1086,56 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
   },
-  
+  profileStatusContainer: {
+    marginTop: 10,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+  },
+  completeBadge: {
+    backgroundColor: '#E8F5E9',
+  },
+  incompleteBadge: {
+    backgroundColor: '#FFF3E0',
+  },
+  statusText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  timeText: {
+    color: '#1a237e',
+    fontSize: 14,
+  },
+  timeSeparator: {
+    marginHorizontal: 8,
+    color: '#666',
+  },
+  hourRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEE',
+  },
+  hoursInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  timeInput: {
+    borderWidth: 1,
+    borderColor: '#1a237e',
+    borderRadius: 8,
+    padding: 8,
+    minWidth: 100,
+    alignItems: 'center',
+  },
   
 });
 

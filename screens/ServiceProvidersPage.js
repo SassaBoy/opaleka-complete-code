@@ -11,11 +11,13 @@ import {
   Animated,
   StatusBar,
   Dimensions,
+  ActivityIndicator
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/Ionicons";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import RNPickerSelect from "react-native-picker-select";
 
 const { width } = Dimensions.get("window");
 
@@ -28,9 +30,27 @@ const ServiceProvidersPage = ({ route }) => {
   const fadeAnim = new Animated.Value(0);
   const slideAnim = new Animated.Value(50);
   const [selectedId, setSelectedId] = useState(null);
+  const [locationQuery, setLocationQuery] = useState("");
+  const [sortByLowest, setSortByLowest] = useState(false);
+  const [sortOption, setSortOption] = useState("default"); // "default", "priceLow", "ratingHigh"
 
   useEffect(() => {
-    fetchProviders();
+    const initialFetch = async () => {
+      const defaultLocation = await AsyncStorage.getItem("userLocation");
+      if (!locationQuery) {
+        fetchProviders(defaultLocation);
+      }
+    };
+    
+    initialFetch();
+  
+    const interval = setInterval(async () => {
+      if (!locationQuery) {
+        const defaultLocation = await AsyncStorage.getItem("userLocation");
+        fetchProviders(defaultLocation);
+      }
+    }, 5000);
+  
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -44,68 +64,84 @@ const ServiceProvidersPage = ({ route }) => {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
-
-  // Client-side fetch function
-const fetchProviders = async () => {
-  try {
-    setLoading(true);
-    
-    const userLocation = await AsyncStorage.getItem("userLocation");
-    
-    const response = await axios.get(
-      `https://service-booking-backend-eb9i.onrender.com/api/auth/providers`,
-      {
-        params: {
-          serviceName,
-          location: userLocation
-        }
-      }
-    );
-
-    // Handle the response regardless of whether providers were found
-    const providers = response.data.providers || [];
-    
-    // Fetch review details for each provider
-    const updatedProviders = await Promise.all(
-      providers.map(async (provider) => {
-        try {
-          const reviewDetailsResponse = await axios.get(
-            `https://service-booking-backend-eb9i.onrender.com/api/reviews/provider/${provider.id}/details`
-          );
-          
-          const { reviewCount, averageRating } = reviewDetailsResponse.data.data;
-          
-          return {
-            ...provider,
-            averageRating: averageRating.toFixed(1),
-            reviewCount
-          };
-        } catch (error) {
-          console.error(`Error fetching reviews for provider ${provider.name}:`, error);
-          return {
-            ...provider,
-            averageRating: "0.0",
-            reviewCount: 0
-          };
-        }
-      })
-    );
-
-    setServiceProviders(updatedProviders);
-    
-  } catch (error) {
-    console.error("Error fetching providers:", error);
-    // Set empty array instead of leaving previous state
-    setServiceProviders([]);
-  } finally {
-    setLoading(false);
-  }
-};
   
-  const filteredProviders = serviceProviders.filter((provider) =>
-    provider.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    return () => clearInterval(interval);
+  }, [locationQuery]); // Add locationQuery as dependency
+
+  const fetchProviders = async (overrideLocation = null) => {
+    try {
+      setLoading(true);
+  
+      let locationToFetch = overrideLocation !== null ? overrideLocation : locationQuery;
+      if (!locationToFetch) {
+        locationToFetch = await AsyncStorage.getItem("userLocation");
+      }
+  
+      const response = await axios.get(`http://192.168.8.138:5001/api/auth/providers`, {
+        params: { serviceName, location: locationToFetch }
+      });
+  
+      const providers = response.data.providers || [];
+  
+      if (locationQuery.trim() && providers.length === 0) {
+        setServiceProviders([]); // Keep "No providers found" message
+      } else {
+        // Fetch review details for each provider
+        const updatedProviders = await Promise.all(
+          providers.map(async (provider) => {
+            try {
+              const reviewDetailsResponse = await axios.get(
+                `http://192.168.8.138:5001/api/reviews/provider/${provider.id}/details`
+              );
+  
+              const { reviewCount, averageRating } = reviewDetailsResponse.data.data;
+  
+              return {
+                ...provider,
+                averageRating: averageRating.toFixed(1),
+                reviewCount
+              };
+            } catch (error) {
+              console.error(`Error fetching reviews for provider ${provider.name}:`, error);
+              return {
+                ...provider,
+                averageRating: "0.0",
+                reviewCount: 0
+              };
+            }
+          })
+        );
+  
+        setServiceProviders(updatedProviders);
+      }
+    } catch (error) {
+      console.error("Error fetching providers:", error);
+      setServiceProviders([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+const filteredProviders = [...serviceProviders]
+  .sort((a, b) => {
+    // Convert prices to numbers, using 999999 as default for missing/invalid prices
+    const priceA = a.servicePrice ? parseFloat(a.servicePrice) : 999999;
+    const priceB = b.servicePrice ? parseFloat(b.servicePrice) : 999999;
+    
+    // Sort based on the selected option
+    if (sortOption === "priceLow") {
+      return priceA - priceB; // Sort Low to High
+    }
+    if (sortOption === "priceHigh") {
+      return priceB - priceA; // Sort High to Low
+    }
+    if (sortOption === "ratingHigh") {
+      const ratingA = parseFloat(a.averageRating) || 0;
+      const ratingB = parseFloat(b.averageRating) || 0;
+      return ratingB - ratingA;
+    }
+    return 0; // Default sorting
+  });
 
   const handleProviderClick = (provider) => {
     setSelectedId(provider.id);
@@ -147,7 +183,7 @@ const fetchProviders = async () => {
           <Image
             source={{
               uri: item.profileImage
-                ? `https://service-booking-backend-eb9i.onrender.com/${item.profileImage}`
+                ? `http://192.168.8.138:5001/${item.profileImage}`
                 : "https://via.placeholder.com/150",
             }}
             style={styles.providerImage}
@@ -183,33 +219,99 @@ const fetchProviders = async () => {
   
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyText}>
-        {loading ? "Loading providers..." : "No providers found for this service."}
-      </Text>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>
+            {locationQuery 
+              ? `Searching providers in ${locationQuery}...` 
+              : "Searching for nearby providers..."}
+          </Text>
+          <ActivityIndicator size="large" color="#1a237e" style={styles.loadingSpinner} />
+        </View>
+      ) : (
+        <Text style={styles.emptyText}>
+          {locationQuery 
+            ? `No providers found in ${locationQuery}.` 
+            : "No providers found for this service."}
+        </Text>
+      )}
     </View>
   );
+  
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1a237e" />
+      
+      {/* Header */}
       <View style={styles.headerContainer}>
         <Text style={styles.pageTitle}>{`${serviceName} Service Providers`}</Text>
         <Text style={styles.header}>Find the perfect service provider</Text>
       </View>
-
       <View style={styles.searchContainer}>
-        <View style={styles.searchInputContainer}>
-          <Icon name="search" size={20} color="#9E9E9E" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search providers..."
-            placeholderTextColor="#9E9E9E"
-            value={searchQuery}
-            onChangeText={(text) => setSearchQuery(text)}
-          />
-        </View>
-      </View>
+  {/* Location Search */}
+ <View style={styles.searchInputContainer}>
+  <Icon name="location-outline" size={20} color="#9E9E9E" style={styles.searchIcon} />
+  <TextInput
+  style={[styles.searchInput, { flex: 1 }]}
+  placeholder="Enter town or city..."
+  placeholderTextColor="#9E9E9E"
+  value={locationQuery}
+  onChangeText={(text) => {
+    setLocationQuery(text);
+    if (text.trim() === "") {
+      AsyncStorage.getItem("userLocation").then((defaultLocation) => {
+        setLocationQuery("");
+        fetchProviders(defaultLocation);
+      });
+    } else if (text.trim().length >= 4) {
+      setLoading(true);
+      fetchProviders();
+    }
+  }}
+/>
+  <TouchableOpacity
+    style={styles.searchButton}
+    onPress={() => {
+      setLoading(true);
+      if (locationQuery.trim()) {
+        fetchProviders();
+      } else {
+        setServiceProviders([]);
+      }
+    }}
+  >
+    <Icon name="search" size={20} color="#ffffff" />
+  </TouchableOpacity>
+</View>
 
+
+        <View style={styles.sortingContainer}>
+  <Text style={styles.sortLabel}>Sort by:</Text>
+  <View style={styles.pickerContainer}>
+    <RNPickerSelect
+      onValueChange={(value) => setSortOption(value)}
+      items={[
+        { label: "Default Sorting", value: "default" },
+        { label: "Price: Lowest First", value: "priceLow" },
+        { label: "Price: Highest First", value: "priceHigh" },
+        { label: "Rating: Most Rated", value: "ratingHigh" },
+      ]}
+      style={{
+        inputIOS: styles.pickerInput,
+        inputAndroid: styles.pickerInput,
+      }}
+      value={sortOption} // ✅ Keeps selected option visible
+    />
+  </View>
+  <Text style={styles.selectedSortText}>
+    {sortOption === "priceLow" ? "Sorting: Price Low to High" : 
+     sortOption === "priceHigh" ? "Sorting: Price High to Low" : 
+     sortOption === "ratingHigh" ? "Sorting: Rating High to Low" : "Sorting: Default"}
+  </Text>
+</View>
+
+      </View>
       <FlatList
         data={filteredProviders}
         keyExtractor={(item) => item.id.toString()}
@@ -368,6 +470,71 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: "#757575",
+  },
+  sortingContainer: {
+    backgroundColor: '#ffffff',
+    padding: 16,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    marginVertical: 8,
+    marginHorizontal: 16,
+  },
+  
+  sortLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333333',
+    marginBottom: 8,
+  },
+  
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 6,
+    backgroundColor: '#f8f8f8',
+    marginBottom: 12,
+  },
+  
+  pickerInput: {
+    fontSize: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderWidth: 0,
+    color: '#333333',
+    backgroundColor: 'transparent',
+  },
+  
+  selectedSortText: {
+    fontSize: 14,
+    color: '#666666',
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  searchButton: {
+    backgroundColor: '#1a237e',
+    padding: 10,
+    borderRadius: 20,
+    marginLeft: 10,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#757575',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  loadingSpinner: {
+    marginTop: 10,
   },
 });
 

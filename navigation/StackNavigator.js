@@ -53,7 +53,9 @@ const StackNavigator = () => {
           animationEnabled: true, // Smooth transitions
           cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS, // Smooth iOS-like animation
         }}
+        
       >
+        
        <Stack.Screen name="Landing" component={LandingScreen} options={{ animationEnabled: false }} />
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="AdminNotificationsPage" component={AdminNotificationsPage} />

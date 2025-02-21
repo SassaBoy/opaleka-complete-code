@@ -326,7 +326,7 @@ ListEmptyComponent={() => (
               ? `https://service-booking-backend-eb9i.onrender.com/${selectedService.providerId.profileImage.replace(/\\/g, '/')}`
               : 'https://via.placeholder.com/50',
           }}
-          style={styles.providerImage}
+          style={styles.providerImage1}
         />
 
         {/* Provider Name */}
@@ -502,15 +502,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.7,
   },
-  providerImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 12,
-    borderWidth: 2,
-    borderColor: '#1a237e',
-    
-  },
+
   serviceDetails: {
     padding: 16,
   },
@@ -592,6 +584,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
     letterSpacing: 0.5,
+    marginTop: -40,
+    marginLeft: -60,
   },
   modalDetailRow: {
     flexDirection: 'row',
@@ -687,11 +681,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
+    gap: 10, // Add spacing between elements for better alignment
   },
   headerInfo: {
     flex: 1,
-    marginLeft: 12,
+    justifyContent: 'flex-start', // Aligns text better with the moved image
+    marginLeft: 8,
+    marginTop: 2, // Slightly adjusts name positioning for better balance
   },
+  
   statusIndicator: {
     width: 15,
     height: 15,
@@ -713,11 +711,21 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   providerImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 60,
+    height: 60,
+    borderRadius: 28,
     borderWidth: 2,
-    borderColor: '#1a237e',
+    borderColor: '#fff',
+    marginTop: 6, // Moves image slightly down for better alignment with the name
+  },
+  
+  providerImage1: {
+    width: 60,
+    height: 60,
+    borderRadius: 28,
+    borderWidth: 2,
+    borderColor: '#fff',
+    marginTop: 30, // Moves image slightly down for better alignment with the name
   },
   
 });

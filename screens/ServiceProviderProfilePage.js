@@ -13,7 +13,7 @@ import {
   Alert,
 } from "react-native";
 import Carousel from "react-native-reanimated-carousel";
-import { TabView, SceneMap, TabBar } from "react-native-tab-view";
+import { TabView, SceneMap, TabBar, PagerScroll } from "react-native-tab-view";
 import axios from "axios";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -28,22 +28,36 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
   const [provider, setProvider] = useState(null);
   const [tabIndex, setTabIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [routes] = useState([
-    { key: "first", title: "Services" },
-    { key: "second", title: "Reviews" },
-    { key: "third", title: "Hours" },
-    { key: "fourth", title: "Details" },
-  ]);
+  const [activeTab, setActiveTab] = useState(0);
+  const [reload, setReload] = useState(false);
+
+        // At the top of your component, update the routes state:
+const [routes] = useState([
+  { key: 'first', title: 'Services', index: 0 },
+  { key: 'second', title: 'Reviews', index: 1 },
+  { key: 'third', title: 'Hours', index: 2 },
+  { key: 'fourth', title: 'Details', index: 3 },
+]);
+
+const ROUTES = [
+  { key: 'first', title: 'Services' },
+  { key: 'second', title: 'Reviews' },
+  { key: 'third', title: 'Hours' },
+  { key: 'fourth', title: 'Details' },
+];
 
   useEffect(() => {
     fetchProviderDetails();
   }, []);
-
+  useEffect(() => {
+    console.log("Provider state updated:", provider);
+  }, [provider, reload]);  // ✅ Now listens to reload state
+  
   // Remove this effect in production
   useEffect(() => {
     console.log("Provider state updated:", provider);
   }, [provider]);
-  
+
   const fetchProviderDetails = async () => {
     try {
       if (!name || !email) {
@@ -51,32 +65,48 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
         Alert.alert("Error", "Missing provider information");
         return;
       }
-      
+  
       console.log(`Fetching provider details for name: ${name}, email: ${email}`);
-      const response = await axios.get(
-        `https://service-booking-backend-eb9i.onrender.com/api/auth/providers/details?name=${encodeURIComponent(name)}&email=${encodeURIComponent(email)}`
+  
+      // 1. Fetch provider details
+      const detailsResponse = await axios.get(
+        `http://192.168.8.138:5001/api/auth/providers/details?name=${encodeURIComponent(name)}&email=${encodeURIComponent(email)}`
       );
   
-      if (response.data?.success) {
-        const providerData = response.data.data;
-  
-        // Extract rating and review count from route params
-        setProvider({
-          ...providerData,
-          reviews: route.params?.reviewCount || 0,
-          rating: route.params?.averageRating || "0.0",
-        });
-      } else {
+      if (!detailsResponse.data?.success) {
         console.warn("No provider details found.");
         Alert.alert("Not Found", "Provider details could not be found");
+        return;
       }
+  
+      const providerData = detailsResponse.data.data;
+      console.log("Provider Details:", providerData);
+  
+      // 2. Remove mongoose validation - trust the backend ID
+      if (!providerData._id) {
+        throw new Error("Provider ID is missing in response");
+      }
+  
+      // 3. Fetch reviews using the provider ID from details
+      const reviewsResponse = await axios.get(
+        `http://192.168.8.138:5001/api/auth/${providerData._id}/reviews`
+      );
+  
+      // 4. Update state
+      setProvider({
+        ...providerData,
+        reviews: reviewsResponse.data?.reviews || [],
+        rating: reviewsResponse.data?.averageRating || "0.0",
+      });
+  
     } catch (error) {
-      console.error("Error fetching provider details:", error.message);
-      Alert.alert("Error", "Failed to fetch provider details. Please try again later.");
+      console.error("Error:", error.message);
+      Alert.alert("Error", error.message || "Failed to load data");
     } finally {
       setLoading(false);
     }
   };
+  
   
   const getIconUri = (platform) => {
     switch (platform.toLowerCase()) {
@@ -155,7 +185,7 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
                     serviceName: service.name || "Service",
                     name,
                     email,
-                    reviewCount: provider?.reviews || 0,
+                    reviewCount: provider?.reviews?.length || 0, // Changed here
                     averageRating: provider?.rating || "0.0",
                   })
                 }
@@ -171,50 +201,59 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
     </ScrollView>
   );
   
-  const SecondRoute = () => (
-    <ScrollView style={styles.tabContent}>
-      {provider?.reviews && Array.isArray(provider.reviews) && provider.reviews.length > 0 ? (
-        provider.reviews.map((review, index) => (
-          <View key={index} style={styles.reviewCard}>
-            <View style={styles.reviewHeader}>
-              <Image
-                source={{
-                  uri: review?.userId?.profileImage
-                    ? `https://service-booking-backend-eb9i.onrender.com/${review.userId.profileImage.replace(/\\/g, "/")}`
-                    : "https://service-booking-backend-eb9i.onrender.com/uploads/default-profile.png",
-                }}
-                style={styles.reviewerAvatar}
-                defaultSource={require('../assets/default-profile.png')}
-              />
-              <View style={styles.reviewerInfo}>
-                <Text style={styles.reviewUser}>{review?.userId?.name || "Anonymous"}</Text>
-                <Text style={styles.reviewDate}>
-                  {review?.createdAt ? new Date(review.createdAt).toLocaleDateString() : "Unknown date"}
-                </Text>
-                <View style={styles.starsContainer}>
-                  {[...Array(5)].map((_, i) => (
-                    <Text
-                      key={i}
-                      style={[
-                        styles.star,
-                        { color: i < (review?.rating || 0) ? "#FFD700" : "#E0E0E0" },
-                      ]}
-                    >
-                      ★
-                    </Text>
-                  ))}
+
+  const SecondRoute = () => {
+    console.log("Rendering Reviews in UI:", provider?.reviews);
+  
+    return (
+      <ScrollView style={styles.tabContent}>
+        {provider?.reviews && Array.isArray(provider.reviews) && provider.reviews.length > 0 ? (
+          provider.reviews.map((review, index) => (
+            <View key={index} style={styles.reviewCard}>
+              <View style={styles.reviewHeader}>
+                <Image
+                  source={{
+                    uri: review?.userId?.profileImage
+                      ? `https://service-booking-backend-eb9i.onrender.com/${review.userId.profileImage.replace(/\\/g, "/")}`
+                      : "https://service-booking-backend-eb9i.onrender.com/uploads/default-profile.png",
+                  }}
+                  style={styles.reviewerAvatar}
+                />
+                <View style={styles.reviewerInfo}>
+                  <Text style={styles.reviewUser}>{review?.userId?.name || "Anonymous"}</Text>
+                  <Text style={styles.reviewDate}>
+                    {review?.createdAt ? new Date(review.createdAt).toLocaleDateString() : "Unknown date"}
+                  </Text>
+                  <View style={styles.starsContainer}>
+                    {[...Array(5)].map((_, i) => (
+                      <Text
+                        key={i}
+                        style={[
+                          styles.star,
+                          { color: i < (review?.rating || 0) ? "#FFD700" : "#E0E0E0" },
+                        ]}
+                      >
+                        ★
+                      </Text>
+                    ))}
+                  </View>
                 </View>
               </View>
+              <Text style={styles.reviewText}>
+  {typeof review?.review === 'string' ? review.review : JSON.stringify(review?.review) || "No comment"}
+</Text>
+
+
             </View>
-            <Text style={styles.reviewText}>{review?.review || "No comment"}</Text>
-          </View>
-        ))
-      ) : (
-        <Text style={styles.emptyText}>No reviews available yet.</Text>
-      )}
-    </ScrollView>
-  );
-  
+          ))
+        ) : (
+          <Text style={styles.emptyText}>No reviews available yet.</Text>
+        )}
+      </ScrollView>
+    );
+  };
+
+
   const ThirdRoute = () => (
     <ScrollView style={styles.tabContent}>
       <View style={styles.hoursCard}>
@@ -289,18 +328,37 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
       </View>
     </ScrollView>
   );
-  
   const renderTabBar = (props) => (
     <TabBar
       {...props}
-      style={styles.tabBar}
-      indicatorStyle={styles.tabIndicator}
-      labelStyle={styles.tabLabel}
-      activeColor="#1a237e"
-      inactiveColor="#9E9E9E"
+      scrollEnabled={true}
+      style={{
+        backgroundColor: '#ffffff',
+        elevation: 0,
+        shadowOpacity: 0,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e0e0e0',
+      }}
+      tabStyle={{ width: SCREEN_WIDTH / 4 }}
+      indicatorStyle={{
+        backgroundColor: PRIMARY_COLOR,
+        height: 3,
+      }}
+      indicatorContainerStyle={{
+        zIndex: 1,
+      }}
+      labelStyle={{
+        fontSize: 14,
+        textTransform: 'uppercase',
+        fontWeight: '600',
+      }}
+      activeColor={PRIMARY_COLOR}
+      inactiveColor="#757575"
     />
   );
-
+  
+  
+  
   const renderScene = SceneMap({
     first: FirstRoute,
     second: SecondRoute,
@@ -352,8 +410,8 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
                   uri: typeof item === 'string' && item ? (
                     item.startsWith("http")
                       ? item
-                      : `https://service-booking-backend-eb9i.onrender.com/${item}`
-                  ) : "https://service-booking-backend-eb9i.onrender.com/uploads/default-profile.png"
+                      : `http://192.168.8.138:5001/${item}`
+                  ) : "http://192.168.8.138:5001/uploads/default-profile.png"
                 }}
                 style={styles.carouselImage}
                 resizeMode="cover"
@@ -371,12 +429,12 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
           />
         )}
         <View style={styles.headerOverlay}>
-          <View style={styles.ratingContainer}>
-            <Text style={styles.rating}>★ {provider?.rating || "0.0"}</Text>
-            <Text style={styles.reviewCount}>
-              {provider?.reviews || 0} {provider?.reviews === 1 ? "review" : "reviews"}
-            </Text>
-          </View>
+        <View style={styles.ratingContainer}>
+  <Text style={styles.rating}>★ {provider?.rating || "0.0"}</Text>
+  <Text style={styles.reviewCount}>
+    {provider?.reviews?.length || 0} {provider?.reviews?.length === 1 ? "review" : "reviews"}
+  </Text>
+</View>
         </View>
       </View>
 
@@ -394,27 +452,70 @@ const ServiceProviderProfilePage = ({ route, navigation }) => {
         </View>
         <Text style={styles.address}>{provider?.businessName || "Business name not available"}</Text>
       </View>
-
-      <TabView
-        navigationState={{
-          index: tabIndex,
-          routes,
+    <View style={{ flex: 1, backgroundColor: "#F8F9FA" }}> 
+  {/* Tab Navigation */}
+  <View style={{
+    flexDirection: 'row',
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3, // Adds subtle shadow on Android
+  }}>
+    {ROUTES.map((route, idx) => (
+      <TouchableOpacity
+        key={route.key}
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: 14,
+          borderBottomWidth: tabIndex === idx ? 3 : 0,
+          borderBottomColor: tabIndex === idx ? PRIMARY_COLOR : "transparent",
+          backgroundColor: tabIndex === idx ? "#FAFAFA" : "transparent", // Subtle highlight
         }}
-        renderScene={renderScene}
-        onIndexChange={setTabIndex}
-        initialLayout={{ width: SCREEN_WIDTH }}
-        renderTabBar={renderTabBar}
-        style={styles.tabView}
-      />
+        onPress={() => setTabIndex(idx)}
+        activeOpacity={0.8} // Smooth press effect
+      >
+        <Text style={{
+          color: tabIndex === idx ? PRIMARY_COLOR : "#757575",
+          fontSize: 15,
+          fontWeight: tabIndex === idx ? "700" : "500",
+          textTransform: "uppercase",
+          letterSpacing: 0.5, // Slight letter spacing for better readability
+        }}>
+          {route.title}
+        </Text>
+      </TouchableOpacity>
+    ))}
+  </View>
+
+  {/* Tab Content */}
+  <View style={{
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    padding: 16,
+    borderRadius: 10, // Smooth edges
+    marginTop: 5,
+  }}>
+    {tabIndex === 0 && <FirstRoute />}
+    {tabIndex === 1 && <SecondRoute />}
+    {tabIndex === 2 && <ThirdRoute />}
+    {tabIndex === 3 && <DetailsRoute />}
+  </View>
+</View>
 
       <TouchableOpacity
         style={styles.bookButton}
         onPress={() =>
           navigation.navigate("BookingPage", {
-            serviceName: serviceName || (provider?.services && provider.services.length > 0 ? provider.services[0].name : "Service"),
+            serviceName: serviceName || (provider?.services?.[0]?.name || "Service"),
             name,
             email,
-            reviewCount: provider?.reviews || 0,
+            reviewCount: provider?.reviews?.length || 0, // Changed here
             averageRating: provider?.rating || "0.0",
           })
         }
@@ -495,29 +596,7 @@ const styles = StyleSheet.create({
     color: '#757575',
     lineHeight: 20,
   },
-  tabBar: {
-    backgroundColor: '#ffffff',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    height: 48,
-  },
-  tabIndicator: {
-    backgroundColor: PRIMARY_COLOR,
-    height: 3,
-    borderRadius: 3,
-  },
-  tabLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    margin: 0,
-    padding: 0,
-  },
+
   tabView: {
     flex: 1,
     backgroundColor: '#F8F9FF',
@@ -579,13 +658,13 @@ const styles = StyleSheet.create({
   },
   reviewCard: {
     backgroundColor: "#ffffff",
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 16,
     marginBottom: 16,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.1,
-    shadowRadius: 6,
+    shadowRadius: 4,
     elevation: 3,
   },
   reviewHeader: {
@@ -594,9 +673,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   reviewerAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: "#1a237e",
     marginRight: 12,
   },
   reviewerInfo: {
@@ -604,11 +685,11 @@ const styles = StyleSheet.create({
   },
   reviewUser: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#212121",
+    fontWeight: "700",
+    color: "#1a237e",
   },
   reviewDate: {
-    fontSize: 14,
+    fontSize: 12,
     color: "#757575",
     marginTop: 2,
   },
@@ -624,6 +705,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#424242",
     lineHeight: 20,
+    marginTop: 8,
+    backgroundColor: "#F7F8FC",
+    padding: 10,
+    borderRadius: 10,
   },
   emptyText: {
     fontSize: 16,
@@ -730,18 +815,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  activeTab: {
-    borderBottomWidth: 3,
-    borderBottomColor: PRIMARY_COLOR,
-  },
-  activeTabLabel: {
-    color: PRIMARY_COLOR,
-    fontWeight: '700',
-  },
-  inactiveTabLabel: {
-    color: '#757575',
-    fontWeight: '500',
-  },
+
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -771,6 +845,36 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#F8F9FF',
+  },
+  tabContainer: {
+    flex: 1,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  activeTab: {
+    borderBottomWidth: 3,
+    borderBottomColor: PRIMARY_COLOR,
+  },
+  tabText: {
+    fontSize: 14,
+    color: '#757575',
+    textTransform: 'uppercase',
+  },
+  activeTabText: {
+    color: PRIMARY_COLOR,
+    fontWeight: '600',
+  },
+  tabContent: {
+    flex: 1,
   },
 });
 

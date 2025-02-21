@@ -18,6 +18,7 @@ import Icon from "react-native-vector-icons/MaterialIcons";
 import Toast from "react-native-toast-message";
 import axios from "axios";
 
+
 const { width } = Dimensions.get("window");
 
 const SignupScreen = ({ route, navigation }) => {
@@ -33,6 +34,8 @@ const SignupScreen = ({ route, navigation }) => {
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState("");
+const [loading, setLoading] = useState(false); // Add loading state
+
 
   const validNamibianPrefixes = useMemo(() => [
     "061", "062", "063", "064", "065", "066", "067", "060", "081", "083", "084", "085",
@@ -96,15 +99,17 @@ const SignupScreen = ({ route, navigation }) => {
   };
 
   
-
   const handleSignup = async () => {
     setHasSubmitted(true);
     setErrors({});
+    setLoading(true); // Start loading
   
-    if (!isFormValid) return;
+    if (!isFormValid) {
+      setLoading(false);
+      return;
+    }
   
     const formData = new FormData();
-  
     formData.append("role", role);
     formData.append("name", name);
     formData.append("email", email);
@@ -139,14 +144,13 @@ const SignupScreen = ({ route, navigation }) => {
       );
   
       if (response.data.redirect) {
-        // Handle incomplete profile or provider details redirection
         Alert.alert(
           "Incomplete Application",
           "You already started the application. Would you like to continue?",
           [
             {
               text: "No",
-              onPress: () => navigation.navigate("Home"), // Redirect to the home page
+              onPress: () => navigation.navigate("Home"),
               style: "cancel",
             },
             {
@@ -164,51 +168,49 @@ const SignupScreen = ({ route, navigation }) => {
         return;
       }
   
+      // Show success toast
       Toast.show({
         type: "success",
         text1: "Success",
         text2: `Signed up successfully as ${role}!`,
       });
   
-      if (role === "Provider") {
-        navigation.navigate("CompleteProfile", {
-          email, // Pass the email to the next screen
-          userData: response.data,
-        });
-      } else {
-        navigation.navigate("Login", { role });
-      }
+      // Navigate after a slight delay for better UX
+      setTimeout(() => {
+        if (role === "Provider") {
+          navigation.navigate("CompleteProfile", {
+            email,
+            userData: response.data,
+          });
+        } else {
+          navigation.navigate("Login", { role });
+        }
+      }, 1000);
+  
     } catch (error) {
       let errorMessage = "Registration failed. Please try again.";
-  
       if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
-  
         const newErrors = {};
-        if (errorMessage.toLowerCase().includes("email")) {
-          newErrors.email = errorMessage;
-        }
-        if (errorMessage.toLowerCase().includes("password")) {
-          newErrors.password = errorMessage;
-        }
-        if (errorMessage.toLowerCase().includes("phone")) {
-          newErrors.phone = errorMessage;
-        }
-        if (Object.keys(newErrors).length === 0) {
-          newErrors.general = errorMessage;
-        }
+        if (errorMessage.toLowerCase().includes("email")) newErrors.email = errorMessage;
+        if (errorMessage.toLowerCase().includes("password")) newErrors.password = errorMessage;
+        if (errorMessage.toLowerCase().includes("phone")) newErrors.phone = errorMessage;
+        if (Object.keys(newErrors).length === 0) newErrors.general = errorMessage;
         setErrors(newErrors);
       }
   
+      // Show error toast
       Toast.show({
         type: "error",
         text1: "Registration Error",
         text2: errorMessage,
       });
+  
+    } finally {
+      setLoading(false); // Stop loading
     }
   };
   
-
   
   return (
     <SafeAreaView style={styles.container}>
@@ -329,14 +331,24 @@ const SignupScreen = ({ route, navigation }) => {
             {shouldShowError('businessName') && <Text style={styles.errorText}>{errors.businessName}</Text>}
   
             <TouchableOpacity
-              style={[styles.button, !isFormValid && styles.disabledButton]}
-              onPress={handleSignup}
-              disabled={!isFormValid}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.buttonText}>Create Account</Text>
-            </TouchableOpacity>
-  
+  style={[
+    styles.button,
+    !isFormValid && styles.disabledButton,
+    loading && { backgroundColor: "#9ea1c7", flexDirection: "row", justifyContent: "center", alignItems: "center" }
+  ]}
+  onPress={handleSignup}
+  disabled={!isFormValid || loading}
+>
+  {loading ? (
+    <>
+      <Icon name="autorenew" size={20} color="#fff" style={{ marginRight: 10 }} />
+      <Text style={styles.buttonText}>Signing up...</Text>
+    </>
+  ) : (
+    <Text style={styles.buttonText}>Create Account</Text>
+  )}
+</TouchableOpacity>
+
             <TouchableOpacity
               style={styles.loginLink}
               onPress={() => navigation.navigate("Login", { role })}

@@ -1,20 +1,25 @@
-import React, { useEffect } from "react";
-import { View, Text, Image, StyleSheet } from "react-native";
+// SplashScreen.js
+import React, { useEffect } from 'react';
+import { View, Image, StyleSheet } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
-const SplashScreen = ({ navigation }) => {
+const SplashScreen = () => {
+  const navigation = useNavigation();
+
   useEffect(() => {
-    setTimeout(() => {
-      navigation.replace("Home"); // Navigate after splash
-    }, 3000); // Adjust delay as needed
+    const timer = setTimeout(() => {
+      navigation.replace('Landing'); // Using replace to prevent going back to splash
+    }, 2000);
+
+    return () => clearTimeout(timer); // Cleanup timer
   }, []);
 
   return (
     <View style={styles.container}>
       <Image
-        source={require("./assets/opalekalogo1-removebg.png")}
-        style={styles.logo}
+        source={require('../assets/splash.png')}
+        style={styles.image}
       />
-      <Text style={styles.title}>Opaleka</Text>
     </View>
   );
 };
@@ -22,20 +27,14 @@ const SplashScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1a237e",
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1a237e',
   },
-  logo: {
-    width: 150, // Set custom width
-    height: 150, // Set custom height
-    resizeMode: "contain",
-    fontSize: 64,
-  },
-  title: {
-    fontSize: 24,
-    color: "#fff",
-    marginTop: 20,
+  image: {
+    width: 300,
+    height: 300,
+    resizeMode: 'contain',
   },
 });
 
