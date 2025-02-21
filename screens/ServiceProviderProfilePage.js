@@ -70,7 +70,7 @@ const ROUTES = [
   
       // 1. Fetch provider details
       const detailsResponse = await axios.get(
-        `http://192.168.8.138:5001/api/auth/providers/details?name=${encodeURIComponent(name)}&email=${encodeURIComponent(email)}`
+        `https://service-booking-backend-eb9i.onrender.com/api/auth/providers/details?name=${encodeURIComponent(name)}&email=${encodeURIComponent(email)}`
       );
   
       if (!detailsResponse.data?.success) {
@@ -89,7 +89,7 @@ const ROUTES = [
   
       // 3. Fetch reviews using the provider ID from details
       const reviewsResponse = await axios.get(
-        `http://192.168.8.138:5001/api/auth/${providerData._id}/reviews`
+        `https://service-booking-backend-eb9i.onrender.com/api/auth/${providerData._id}/reviews`
       );
   
       // 4. Update state
@@ -410,8 +410,8 @@ const ROUTES = [
                   uri: typeof item === 'string' && item ? (
                     item.startsWith("http")
                       ? item
-                      : `http://192.168.8.138:5001/${item}`
-                  ) : "http://192.168.8.138:5001/uploads/default-profile.png"
+                      : `https://service-booking-backend-eb9i.onrender.com/${item}`
+                  ) : "https://service-booking-backend-eb9i.onrender.com/uploads/default-profile.png"
                 }}
                 style={styles.carouselImage}
                 resizeMode="cover"

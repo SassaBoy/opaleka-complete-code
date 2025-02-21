@@ -53,7 +53,7 @@ const UserAccount = ({ route }) => {
     try {
       const token = await AsyncStorage.getItem("authToken");
       const response = await fetch(
-        "http://192.168.8.138:5001/api/auth/get-user",
+        "https://service-booking-backend-eb9i.onrender.com/api/auth/get-user",
         { headers: { Authorization: `Bearer ${token}` } }
       );
   
@@ -130,7 +130,7 @@ if (data.user.completeProfile) {
       });
   
       const response = await fetch(
-        `http://192.168.8.138:5001/api/auth/update-profile-picture/${userDetails.id}`,
+        `https://service-booking-backend-eb9i.onrender.com/api/auth/update-profile-picture/${userDetails.id}`,
         {
           method: "PUT",
           headers: {
@@ -597,7 +597,7 @@ if (data.user.completeProfile) {
       }
   
       const response = await fetch(
-        `http://192.168.8.138:5001/api/auth/update-user/${userDetails.id}`,
+        `https://service-booking-backend-eb9i.onrender.com/api/auth/update-user/${userDetails.id}`,
         {
           method: "PUT",
           headers: {
@@ -705,8 +705,8 @@ if (data.user.completeProfile) {
 <Image
   source={{
     uri: userDetails?.profileImage
-      ? `http://192.168.8.138:5001/${userDetails.profileImage.replace(/\\/g, "/")}`
-      : "http://192.168.8.138:5001/uploads/default-profile.png",
+      ? `https://service-booking-backend-eb9i.onrender.com/${userDetails.profileImage.replace(/\\/g, "/")}`
+      : "https://service-booking-backend-eb9i.onrender.com/uploads/default-profile.png",
   }}
   style={styles.profileImage}
   resizeMode="cover"

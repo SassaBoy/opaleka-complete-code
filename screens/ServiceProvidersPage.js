@@ -77,7 +77,7 @@ const ServiceProvidersPage = ({ route }) => {
         locationToFetch = await AsyncStorage.getItem("userLocation");
       }
   
-      const response = await axios.get(`http://192.168.8.138:5001/api/auth/providers`, {
+      const response = await axios.get(`https://service-booking-backend-eb9i.onrender.com/api/auth/providers`, {
         params: { serviceName, location: locationToFetch }
       });
   
@@ -91,7 +91,7 @@ const ServiceProvidersPage = ({ route }) => {
           providers.map(async (provider) => {
             try {
               const reviewDetailsResponse = await axios.get(
-                `http://192.168.8.138:5001/api/reviews/provider/${provider.id}/details`
+                `https://service-booking-backend-eb9i.onrender.com/api/reviews/provider/${provider.id}/details`
               );
   
               const { reviewCount, averageRating } = reviewDetailsResponse.data.data;
@@ -183,7 +183,7 @@ const filteredProviders = [...serviceProviders]
           <Image
             source={{
               uri: item.profileImage
-                ? `http://192.168.8.138:5001/${item.profileImage}`
+                ? `https://service-booking-backend-eb9i.onrender.com/${item.profileImage}`
                 : "https://via.placeholder.com/150",
             }}
             style={styles.providerImage}
