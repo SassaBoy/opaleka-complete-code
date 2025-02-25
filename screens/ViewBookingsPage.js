@@ -34,37 +34,53 @@ const ViewBookingsPage = ({ navigation }) => {
     try {
       setLoading(true);
       setBookings([]); // Prevent UI from going blank while loading
-      
+  
+      // ✅ Retrieve authentication values
       const token = await AsyncStorage.getItem('authToken');
-      
-      if (!token) {
+      const providerId = await AsyncStorage.getItem('userId'); // Ensure we get provider ID
+  
+      console.log("Retrieved Token:", token);
+      console.log("Retrieved Provider ID:", providerId);
+  
+      // ✅ Ensure token and providerId are valid
+      if (!token || !providerId) {
+        console.warn('User is not authenticated, redirecting to login.');
         Alert.alert('Authentication Error', 'You must log in to view bookings.');
         return navigation.navigate('Login');
       }
-
+  
       const endpoint = `https://service-booking-backend-eb9i.onrender.com/api/book/provider/bookings/${selectedTab.toLowerCase()}`;
-      
+  
       const response = await axios.get(endpoint, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
+  
       if (response.data.success) {
-        const sortedBookings = response.data.bookings.sort(
-          (a, b) => new Date(b.date) - new Date(a.date)
+        let sortedBookings = response.data.bookings.sort(
+          (a, b) => new Date(b.createdAt) - new Date(a.createdAt) // Sort latest first
         );
+  
+        // ✅ Exclude soft deleted records for both 'Completed' and 'Rejected' bookings
+        if (["Completed", "Rejected"].includes(selectedTab)) {
+          sortedBookings = sortedBookings.filter(
+            (booking) => !booking.deletedByUsers || !booking.deletedByUsers.includes(providerId)
+          );
+        }
+  
         setBookings(sortedBookings || []);
-      }
-       else {
+      } else {
         Alert.alert('Error', response.data.message || 'Failed to fetch bookings.');
       }
     } catch (error) {
-      console.error(`Error fetching ${selectedTab} bookings:`, error.message);
-      Alert.alert('Unable to load bookings. Please try again.');
+      console.error(`Error fetching ${selectedTab} bookings:`, error.response?.data || error.message);
+      Alert.alert('Error', 'A server error occurred. Please try again later.');
     } finally {
       setLoading(false);
     }
   };
   
+  
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchBookings();
@@ -133,7 +149,6 @@ setBookings([]); // Prevent UI from going blank while loading
       setLoading(false);
     }
   };
-  
   const handleDeleteCompletedJob = async (bookingId) => {
     Alert.alert(
       'Delete Completed Job',
@@ -147,35 +162,30 @@ setBookings([]); // Prevent UI from going blank while loading
             try {
               const token = await AsyncStorage.getItem('authToken');
   
-              console.log(`Attempting to delete job with ID: ${bookingId}`);
+              console.log(`Soft deleting completed job with ID: ${bookingId}`);
   
-              const response = await axios.delete(
+              const response = await axios.put(
                 `https://service-booking-backend-eb9i.onrender.com/api/book/completed/${bookingId}`,
-                {
-                  headers: { Authorization: `Bearer ${token}` },
-                }
+                {},
+                { headers: { Authorization: `Bearer ${token}` } }
               );
   
               console.log('Server Response:', response.data);
   
               if (response.data.success) {
-                Alert.alert('Success', 'Completed job deleted successfully.');
+                Alert.alert('Success', 'Completed job deleted for you.');
                 await fetchBookings();
               } else {
                 console.error('Failed to delete job. Server response:', response.data);
                 Alert.alert('Error', response.data.message || 'Failed to delete completed job.');
               }
-  
             } catch (error) {
               console.error('Error deleting completed job:', error);
   
               let errorMessage = 'Unable to delete completed job. Please try again.';
               if (error.response) {
                 console.error('Full error response:', JSON.stringify(error.response.data, null, 2));
-  
-                errorMessage = error.response.data?.message 
-                  ? error.response.data.message 
-                  : JSON.stringify(error.response.data, null, 2);
+                errorMessage = error.response.data?.message || JSON.stringify(error.response.data, null, 2);
               } else if (error.request) {
                 console.error('Request made but no response received:', error.request);
                 errorMessage = 'No response from the server. Check your internet connection.';
@@ -205,30 +215,48 @@ setBookings([]); // Prevent UI from going blank while loading
           onPress: async () => {
             try {
               const token = await AsyncStorage.getItem('authToken');
-              const response = await axios.delete(
+  
+              console.log(`Soft deleting rejected booking with ID: ${bookingId}`);
+  
+              const response = await axios.put( // ✅ Use PUT for soft delete
                 `https://service-booking-backend-eb9i.onrender.com/api/book/rejected/${bookingId}`,
-                {
-                  headers: { Authorization: `Bearer ${token}` },
-                }
+                {}, // No request body needed
+                { headers: { Authorization: `Bearer ${token}` } }
               );
+  
+              console.log('Server Response:', response.data);
+  
               if (response.data.success) {
-                Alert.alert('Success', 'Rejected booking deleted successfully.');
+                Alert.alert('Success', 'Rejected booking deleted for you.');
                 await fetchBookings();
               } else {
+                console.error('Failed to delete rejected booking. Server response:', response.data);
                 Alert.alert('Error', response.data.message || 'Failed to delete rejected booking.');
               }
+  
             } catch (error) {
-              console.error('Error deleting rejected booking:', error.response?.data || error.message);
-              Alert.alert(
-                'Error',
-                error.response?.data?.message || 'Unable to delete rejected booking. Please try again.'
-              );
+              console.error('Error deleting rejected booking:', error);
+  
+              let errorMessage = 'Unable to delete rejected booking. Please try again.';
+              if (error.response) {
+                console.error('Full error response:', JSON.stringify(error.response.data, null, 2));
+                errorMessage = error.response.data?.message || JSON.stringify(error.response.data, null, 2);
+              } else if (error.request) {
+                console.error('Request made but no response received:', error.request);
+                errorMessage = 'No response from the server. Check your internet connection.';
+              } else {
+                console.error('Unexpected error:', error.message);
+                errorMessage = error.message;
+              }
+  
+              Alert.alert('Error', errorMessage);
             }
           },
         },
       ]
     );
   };
+  
   
   const handleCompleteJob = async (bookingId) => {
     Alert.alert(
@@ -292,7 +320,7 @@ setBookings([]); // Prevent UI from going blank while loading
             source={{
               uri: item.profileImage
                 ? `https://service-booking-backend-eb9i.onrender.com/${item.profileImage}`
-                : "http://192.168.8.138:5001/uploads/default-profile.png",
+                : "https://service-booking-backend-eb9i.onrender.com/uploads/default-profile.png",
             }}
             style={styles.profileImage}
           />

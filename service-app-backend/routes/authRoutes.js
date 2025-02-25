@@ -1,7 +1,7 @@
 const express = require("express");
 const multer = require("multer");
 const path = require("path");
-const { registerUser, loginUser, getUserDetails,getCategories, updateProfilePicture,getUnreadNotificationCount,sendNotification,searchUsers,getNotifications, getUserDetails1,getVerifiedProviders, updateUserDetails, logout, requestPasswordReset, resetPassword, completeProfile, uploadDocuments, verifyDocuments, updatePaymentStatus, markNotificationAsRead, uploadService, getServices, getPendingProviders, searchPendingProviders, getProviderDetails, getProviderServiceDetails, addCustomService, adminSearchToDelete, deleteUser, getClientsCount, getProvidersCount, getFreeProvidersCount, getAllUsersCount, deleteNotificationByUser, deleteAccount, getProviderReviews } = require("../controllers/authController");
+const { registerUser, loginUser, getUserDetails,getCategories, updateProfilePicture,getUnreadNotificationCount,sendNotification,searchUsers,getNotifications, getUserDetails1,getVerifiedProviders, updateUserDetails, logout, requestPasswordReset, resetPassword, completeProfile, uploadDocuments, verifyDocuments, updatePaymentStatus, markNotificationAsRead, uploadService, getServices, getPendingProviders, searchPendingProviders, getProviderDetails, getProviderServiceDetails, addCustomService, adminSearchToDelete, deleteUser, getClientsCount, getProvidersCount, getFreeProvidersCount, getAllUsersCount, deleteNotificationByUser, deleteAccount, getProviderReviews, deleteService, addServiceToProvider, addImage, deleteImage, unpaidReminder } = require("../controllers/authController");
 const { protect } = require("../middleware/authMiddleware");
 const User = require("../models/userModel");
 
@@ -244,5 +244,42 @@ router.delete("/notifications/:notificationId", protect, deleteNotificationByUse
 router.delete("/delete-account", protect, deleteAccount);
 
 router.get('/:providerId/reviews', getProviderReviews);
+
+router.delete("/delete-service/:serviceId", protect, deleteService);
+
+router.post("/add-service", protect, async (req, res, next) => {
+  try {
+    await addServiceToProvider(req, res); // Call the controller function
+  } catch (error) {
+    next(error); // Pass errors to the error-handling middleware
+  }
+});
+
+// Add Image Route
+router.post("/images/add", protect, upload.single("image"), async (req, res, next) => {
+  try {
+    await addImage(req, res);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete Image Route
+router.delete("/images/delete", protect, async (req, res, next) => {
+  try {
+    await deleteImage(req, res);
+  } catch (error) {
+    next(error);
+  }
+});
+
+
+router.get("/unpaid-reminder", protect, async (req, res, next) => {
+  try {
+    await unpaidReminder(req, res);
+  } catch (error) {
+    next(error);
+  }
+});
 
 module.exports = router;

@@ -34,10 +34,10 @@ const BankTransferScreen = ({ navigation }) => {
       <ScrollView style={styles.content}>
         <View style={styles.amountCard}>
           <Text style={styles.amountLabel}>Amount to Transfer</Text>
-          <Text style={styles.amountValue}>NAD 200.00</Text>
+          <Text style={styles.amountValue}>NAD 180.00</Text>
           <TouchableOpacity 
             style={styles.copyButton}
-            onPress={() => handleCopy('200.00')}
+            onPress={() => handleCopy('180.00')}
           >
             <MaterialIcons name="content-copy" size={20} color="#1a237e" />
             <Text style={styles.copyText}>Copy Amount</Text>

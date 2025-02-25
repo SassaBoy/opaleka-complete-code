@@ -12,6 +12,8 @@ import {
   TextInput,
   Platform,
   Switch,
+  FlatList,
+  Alert
 } from "react-native";
 import Toast from "react-native-toast-message";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -21,8 +23,10 @@ import { Picker } from "@react-native-picker/picker";
 import DateTimePicker from '@react-native-community/datetimepicker';
 import PasswordFields from './PasswordFields';  // Create this in a new file
 import ServicesSection from './ServicesSection';  // Create this in a new file
+import ServicesSection101 from "./ServicesSection101";
+import ImageGallery from "./ImageGallery";
 
-const UserAccount = ({ route }) => {
+const UserAccount = ({ route, navigation }) => {
   const [userDetails, setUserDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -33,6 +37,8 @@ const UserAccount = ({ route }) => {
   const [activeTimeField, setActiveTimeField] = useState(null);
   const [showPasswordFields, setShowPasswordFields] = useState(false);
   const [isPasswordValid, setIsPasswordValid] = useState(true);
+  const [editingIndex, setEditingIndex] = useState(null);
+
   const [passwordFields, setPasswordFields] = useState({
     oldPassword: '',
     newPassword: '',
@@ -46,77 +52,265 @@ const UserAccount = ({ route }) => {
   ]);
 
   useEffect(() => {
-    fetchUserDetails();
-  }, []);
+    const checkAuthToken = async () => {
+      const token = await AsyncStorage.getItem("authToken");
+      if (!token) {
+        navigation.replace("Home");
+
+      } else {
+        fetchUserDetails();
+      }
+    };
+  
+    // Run initially and every time the screen is focused
+    const unsubscribe = navigation.addListener("focus", checkAuthToken);
+  
+    return unsubscribe;
+  }, [navigation]);
+  
 
   const fetchUserDetails = async () => {
     try {
-      const token = await AsyncStorage.getItem("authToken");
-      const response = await fetch(
-        "https://service-booking-backend-eb9i.onrender.com/api/auth/get-user",
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-  
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.user) {
-          setUserDetails(data.user);
-          
-          // Initialize all fields with proper defaults
-          const defaultFields = {
-            name: data.user.name,
-            email: data.user.email,
-            phone: data.user.phone || "",
-            businessAddress: "",
-            town: "",
-            yearsOfExperience: "",
-            services: [],
-            operatingHours: {
-              Monday: { start: null, end: null, isClosed: false },
-              Tuesday: { start: null, end: null, isClosed: false },
-              Wednesday: { start: null, end: null, isClosed: false },
-              Thursday: { start: null, end: null, isClosed: false },
-              Friday: { start: null, end: null, isClosed: false },
-              Saturday: { start: null, end: null, isClosed: false },
-              Sunday: { start: null, end: null, isClosed: false }
-            },
-            socialLinks: {
-              facebook: "",
-              twitter: "",
-              instagram: "",
-              linkedin: ""
+        const token = await AsyncStorage.getItem("authToken");
+        const response = await fetch(
+            "https://service-booking-backend-eb9i.onrender.com/api/auth/get-user",
+            { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.user) {
+                setUserDetails(data.user);
+
+                const defaultFields = {
+                    name: data.user.name,
+                    email: data.user.email,
+                    phone: data.user.phone || "",
+                    businessAddress: "",
+                    town: "",
+                    yearsOfExperience: "",
+                    services: [],
+                    operatingHours: {
+                        Monday: { start: null, end: null, isClosed: false },
+                        Tuesday: { start: null, end: null, isClosed: false },
+                        Wednesday: { start: null, end: null, isClosed: false },
+                        Thursday: { start: null, end: null, isClosed: false },
+                        Friday: { start: null, end: null, isClosed: false },
+                        Saturday: { start: null, end: null, isClosed: false },
+                        Sunday: { start: null, end: null, isClosed: false }
+                    },
+                    socialLinks: {
+                        facebook: "",
+                        twitter: "",
+                        instagram: "",
+                        linkedin: ""
+                    },
+                    images: [] // ✅ Ensure images is always defined
+                };
+
+                if (data.user.completeProfile) {
+                    defaultFields.businessAddress = data.user.completeProfile.businessAddress || "";
+                    defaultFields.town = data.user.completeProfile.town || "";
+                    defaultFields.yearsOfExperience = data.user.completeProfile.yearsOfExperience || "";
+                    defaultFields.services = data.user.completeProfile.services?.map(s => ({
+                        name: s.name,
+                        category: s.category,
+                        price: s.price.toString(),
+                        priceType: s.priceType?.toString() || "hour",
+                    })) || [];
+
+                    defaultFields.operatingHours = data.user.completeProfile.operatingHours || defaultFields.operatingHours;
+                    defaultFields.socialLinks = data.user.completeProfile.socialLinks || defaultFields.socialLinks;
+                    defaultFields.images = data.user.completeProfile.images || []; // ✅ Fix: Ensure images exists
+                }
+
+                setEditableFields(defaultFields);
             }
-          };
-  
-       // Merge with existing profile data if available
-if (data.user.completeProfile) {
-  defaultFields.businessAddress = data.user.completeProfile.businessAddress || "";
-  defaultFields.town = data.user.completeProfile.town || "";
-  defaultFields.yearsOfExperience = data.user.completeProfile.yearsOfExperience || "";
-  defaultFields.services = data.user.completeProfile.services?.map(s => ({
-    name: s.name,
-    category: s.category,
-    price: s.price.toString(),
-    priceType: s.priceType
-  })) || [];
-  defaultFields.operatingHours = data.user.completeProfile.operatingHours || defaultFields.operatingHours;
-  defaultFields.socialLinks = data.user.completeProfile.socialLinks || defaultFields.socialLinks;
-}
-  
-          setEditableFields(defaultFields);
         }
-      }
     } catch (error) {
-      console.error("Fetch error:", error);
+        console.error("Fetch error:", error);
+        Toast.show({
+            type: "error",
+            text1: "Error",
+            text2: "Failed to load profile data"
+        });
+    } finally {
+        setLoading(false);
+    }
+};
+
+
+const confirmDeleteService = (serviceId, index) => {
+  Alert.alert(
+    "Delete Service",
+    "Are you sure you want to remove this service?",
+    [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", onPress: () => deleteService(serviceId, index), style: "destructive" },
+    ]
+  );
+};
+
+const addServiceToProvider = async (service) => {
+  try {
+    const token = await AsyncStorage.getItem("authToken");
+    if (!token) throw new Error("Authentication token is missing.");
+
+    const response = await fetch(
+      "https://service-booking-backend-eb9i.onrender.com/api/auth/add-service",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          userId: userDetails.id,
+          name: service.name,
+          category: service.category,
+          price: parseFloat(service.price) || 0,
+          priceType: service.priceType || "hour",
+        }),
+      }
+    );
+
+    const data = await response.json();
+    if (!data.success) throw new Error(data.message || "Failed to add service");
+
+    // Update UI
+    setEditableFields((prev) => {
+      return {
+        ...prev,
+        services: prev.services ? [...prev.services, service] : [service], // ✅ Ensures proper appending
+      };
+    });
+    
+
+    Toast.show({
+      type: "success",
+      text1: "Service Added",
+      text2: `Service '${service.name}' added successfully.`,
+    });
+  } catch (error) {
+    console.error("Error adding service:", error);
+    Toast.show({
+      type: "error",
+      text1: "Error",
+      text2: error.message || "Failed to add service.",
+    });
+  }
+};
+
+const addPredefinedService = () => {
+  const defaultService = {
+    name: availableServices[0].name,
+    category: availableServices[0].category,
+    price: "0",
+    priceType: "hour",
+  };
+
+  // Use spread operator to create a new array with all existing services plus the new one
+  setEditableFields((prev) => ({
+    ...prev,
+    services: [...(prev.services || []), defaultService],
+  }));
+};
+
+// Function to handle adding a custom service
+const addCustomService = (name, category, price, priceType) => {
+  const newService = {
+    name,
+    category,
+    price: price.toString(),
+    priceType,
+  };
+
+  // Use spread operator to create a new array with all existing services plus the new one
+  setEditableFields((prev) => ({
+    ...prev,
+    services: [...(prev.services || []), newService],
+  }));
+};
+const pickNewBusinessImage = async () => {
+  try {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
       Toast.show({
         type: "error",
-        text1: "Error",
-        text2: "Failed to load profile data"
+        text1: "Permission needed",
+        text2: "Please grant camera roll permissions to upload photos.",
       });
-    } finally {
-      setLoading(false);
+      return;
     }
-  };
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    console.log("Image Picker Result:", result);
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const localImageUri = result.assets[0].uri;
+      console.log("Local Image URI:", localImageUri);
+
+      // 1️⃣ Update UI Immediately with Local Image
+      setEditableFields((prev) => ({
+        ...prev,
+        images: [...(prev.images || []), localImageUri], // Adds local image before upload
+      }));
+
+      const token = await AsyncStorage.getItem("authToken");
+      if (!token) throw new Error("Authentication token is missing.");
+
+      const formData = new FormData();
+      formData.append("image", {
+        uri: Platform.OS === "android" ? localImageUri : localImageUri.replace("file://", ""),
+        name: `business_${Date.now()}.jpg`,
+        type: "image/jpeg",
+      });
+
+      const response = await fetch("https://service-booking-backend-eb9i.onrender.com/api/auth/images/add", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+      console.log("Server Response:", data);
+
+      if (!response.ok || !data.success) throw new Error(data.message || "Failed to upload image");
+
+      // 2️⃣ Replace Local Image with Uploaded URL
+      setEditableFields((prev) => ({
+        ...prev,
+        images: prev.images.map((img) =>
+          img === localImageUri ? `https://service-booking-backend-eb9i.onrender.com/${data.images[data.images.length - 1].replace(/\\/g, "/")}` : img
+        ),
+      }));
+
+      Toast.show({
+        type: "success",
+        text1: "Image Uploaded",
+        text2: "Business image added successfully.",
+      });
+    }
+  } catch (error) {
+    console.error("Error adding image:", error);
+    Toast.show({
+      type: "error",
+      text1: "Error",
+      text2: error.message || "Failed to upload image.",
+    });
+  }
+};
+
+
+
   const uploadProfilePicture = async (uri) => {
     try {
       const token = await AsyncStorage.getItem("authToken");
@@ -176,7 +370,7 @@ if (data.user.completeProfile) {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: [ImagePicker.MediaType.IMAGE],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 1,
@@ -208,30 +402,85 @@ if (data.user.completeProfile) {
       await uploadProfilePicture(result.assets[0].uri);
     }
   };
-
-  const handleTimeChange = (event, selectedDate) => {
-    setShowTimePicker(false);
-    if (selectedDate && activeTimeField) {
-      const timeString = selectedDate.toLocaleTimeString([], { 
-        hour: '2-digit', 
-        minute: '2-digit', 
-        hour12: false 
-      });
-      const [day, field] = activeTimeField.split('.');
-      
-      setEditableFields(prev => ({
-        ...prev,
-        operatingHours: {
-          ...prev.operatingHours,
-          [day]: {
-            ...prev.operatingHours[day],
-            [field]: timeString
-          }
+  const deleteBusinessImage = async (index) => {
+    try {
+        const token = await AsyncStorage.getItem("authToken");
+        if (!token) {
+            Toast.show({
+                type: "error",
+                text1: "Authentication Error",
+                text2: "Please log in again.",
+            });
+            return;
         }
-      }));
-    }
-  };
 
+        const imagePath = editableFields.images[index];
+
+        console.log("Attempting to delete image:", imagePath);
+
+        // Extract only the relative image path
+        const relativePath = imagePath.replace(/^http:\/\/192.168.8.138:5001\//, '').replace(/\//g, '\\');
+
+        // Send DELETE request to backend
+        const response = await fetch("https://service-booking-backend-eb9i.onrender.com/api/auth/images/delete", {
+            method: "DELETE",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ imagePath: relativePath }) // Ensure correct format
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || "Failed to delete image");
+        }
+
+        console.log("Backend confirmed image deletion:", data);
+
+        // ✅ Immediately Update the State After Successful Deletion
+        setEditableFields((prev) => ({
+            ...prev,
+            images: prev.images.filter((_, i) => i !== index),
+        }));
+
+        // ✅ Fetch Fresh Data from Backend
+        await fetchUserDetails();
+
+        Toast.show({
+            type: "success",
+            text1: "Image Deleted",
+            text2: "Business image removed successfully.",
+        });
+
+    } catch (error) {
+        console.error("Error deleting image:", error);
+        Toast.show({
+            type: "error",
+            text1: "Error",
+            text2: error.message || "Failed to delete image.",
+        });
+    }
+};
+
+  
+  const handleTimePickerConfirm = (value) => {
+    const [day, field] = activeTimeField.split(".");
+    setEditableFields((prev) => ({
+      ...prev,
+      operatingHours: {
+        ...prev.operatingHours,
+        [day]: {
+          ...prev.operatingHours[day],
+          [field]: value.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          isClosed: prev.operatingHours[day]?.isClosed || false, 
+        },
+      },
+    }));
+    setShowTimePicker(false);
+  };
+  
   const toggleDayClosed = (day) => {
     setEditableFields(prev => ({
       ...prev,
@@ -260,21 +509,69 @@ if (data.user.completeProfile) {
   };
 
   const updateService = (index, field, value) => {
-    setEditableFields(prev => ({
-      ...prev,
-      services: prev.services.map((service, i) => 
-        i === index ? { ...service, [field]: value } : service
-      )
-    }));
+    setEditableFields(prev => {
+      if (!prev.services[index]) return prev; // Prevent potential undefined errors
+  
+      return {
+        ...prev,
+        services: prev.services.map((service, i) =>
+          i === index ? { ...service, [field]: value } : service
+        ),
+      };
+    });
   };
-
-  const deleteService = (index) => {
-    setEditableFields(prev => ({
-      ...prev,
-      services: prev.services.filter((_, i) => i !== index)
-    }));
+  
+  
+  const deleteService = async (serviceId, index) => {
+    try {
+      const token = await AsyncStorage.getItem("authToken");
+      if (!token) throw new Error("Authentication token is missing.");
+  
+      setLoading(true); // Start loading
+  
+      const response = await fetch(
+        `https://service-booking-backend-eb9i.onrender.com/api/auth/delete-service/${serviceId}`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+  
+      if (!response.ok) {
+        throw new Error(`Failed to delete service. Status: ${response.status}`);
+      }
+  
+      const data = await response.json();
+  
+      if (data.success) {
+        // Remove service from UI
+        setEditableFields((prev) => ({
+          ...prev,
+          services: prev.services.filter((_, i) => i !== index),
+        }));
+  
+        Toast.show({
+          type: "success",
+          text1: "Service Deleted",
+          text2: "The service has been successfully removed.",
+        });
+      } else {
+        throw new Error(data.message || "Failed to delete service.");
+      }
+    } catch (error) {
+      console.error("Error deleting service:", error);
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: error.message || "Failed to delete service.",
+      });
+    } finally {
+      setLoading(false); // Stop loading
+    }
   };
-
   
   const renderBasicInfo = () => {
     const basicFields = [
@@ -344,87 +641,122 @@ if (data.user.completeProfile) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Business Information</Text>
           {['businessAddress', 'town', 'yearsOfExperience'].map((key) => (
-            <View key={key} style={styles.field}>
-              <Text style={styles.fieldLabel}>
-                {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}
-              </Text>
-              {editing ? (
-                <TextInput
-                  style={[
-                    styles.input,
-                    editableFields.errors?.[key] && styles.errorInput, // Error styling
-                  ]}
-                  value={editableFields[key]}
-                  onChangeText={(text) =>
-                    setEditableFields((prev) => ({
-                      ...prev,
-                      [key]: text,
-                      errors: { ...prev.errors, [key]: '' }, // Clear error on change
-                    }))
-                  }
-                />
-              ) : (
-                <Text style={styles.fieldValue}>{editableFields[key]}</Text>
-              )}
-              {editableFields.errors?.[key] && (
-                <Text style={styles.errorText}>{editableFields.errors[key]}</Text>
-              )}
-            </View>
-          ))}
+  <View key={key} style={styles.field}>
+    <Text style={styles.fieldLabel}>
+      {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}
+    </Text>
+    {editing ? (
+      <TextInput
+        style={[
+          styles.input,
+          editableFields.errors?.[key] && styles.errorInput, // Error styling
+        ]}
+        value={editableFields[key]?.toString() || ""} // Ensures number is converted to string
+        onChangeText={(text) =>
+          setEditableFields((prev) => ({
+            ...prev,
+            [key]: text,
+            errors: { ...prev.errors, [key]: '' }, // Clear error on change
+          }))
+        }
+      />
+    ) : (
+      <Text style={styles.fieldValue}>{editableFields[key]}</Text>
+    )}
+    {editableFields.errors?.[key] && (
+      <Text style={styles.errorText}>{editableFields.errors[key]}</Text>
+    )}
+  </View>
+))}
+
         </View>
   
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Services Offered</Text>
-            {editing && (
-              <TouchableOpacity style={styles.addButton} onPress={addService}>
-                <MaterialIcons name="add" size={24} color="#00AEEF" />
-              </TouchableOpacity>
-            )}
+       <View style={styles.section}>
+  <Text style={styles.sectionTitle}>Services Offered</Text>
+
+  {editableFields.services.length === 0 ? (
+    <Text style={styles.noServicesText}>No services listed</Text>
+  ) : (
+    editableFields.services.map((service, index) => (
+      <View key={index} style={styles.serviceCard}>
+   {editing && (
+    <TouchableOpacity 
+  style={styles.deleteServiceButton} 
+  onPress={() => confirmDeleteService(service._id, index)}
+  activeOpacity={0.7} // Ensures better click feedback
+>
+  <MaterialIcons name="delete" size={28} color="white" />
+</TouchableOpacity>
+
+)}
+
+
+
+        <Text style={styles.serviceName}>{service.name}</Text>
+        <Text style={styles.serviceDetail}>Category: {service.category}</Text>
+
+        {editing ? (
+          <View style={styles.serviceEditRow}>
+       <TextInput
+  style={styles.priceInput}
+  value={editableFields.services[index]?.price?.toString() || ""}
+  keyboardType="numeric"
+  onChangeText={(text) => updateService(index, "price", text)}
+/>
+
+<Picker
+  selectedValue={editableFields.services[index]?.priceType || "hour"}
+  onValueChange={(value) => {
+    setEditableFields(prev => {
+      const updatedServices = [...prev.services];
+      updatedServices[index] = {
+        ...updatedServices[index],
+        priceType: value.toString(), // Ensures correct format
+      };
+      return { ...prev, services: updatedServices };
+    });
+  }}
+  style={styles.priceTypePicker}
+>
+
+
+
+  <Picker.Item label="Per Hour" value="hour" />
+  <Picker.Item label="One-Time" value="service" />
+</Picker>
+
+
           </View>
-          <ServicesSection
-            services={editableFields.services || []}
-            availableServices={availableServices}
-            onUpdate={(index, updatedService) => {
-              const newServices = [...editableFields.services];
-              newServices[index] = updatedService;
-              setEditableFields((prev) => ({
-                ...prev,
-                services: newServices,
-                errors: { ...prev.errors, services: '' }, // Clear error on update
-              }));
-            }}
-            onDelete={(index) => {
-              const updatedServices = editableFields.services.filter((_, i) => i !== index);
-              setEditableFields((prev) => ({
-                ...prev,
-                services: updatedServices,
-                errors: { ...prev.errors, services: '' }, // Clear error on delete
-              }));
-            }}
-            onAdd={() => {
-              setEditableFields((prev) => ({
-                ...prev,
-                services: [
-                  ...prev.services,
-                  {
-                    name: availableServices[0].name,
-                    category: availableServices[0].category,
-                    price: '0',
-                  },
-                ],
-                errors: { ...prev.errors, services: '' }, // Clear error on add
-              }));
-            }}
-          />
-          {editableFields.errors?.services && (
-            <Text style={styles.errorText}>{editableFields.errors.services}</Text>
-          )}
-        </View>
-  
+        ) : (
+          <Text style={styles.servicePrice}>
+            Price: {service.price} {service.priceType}
+          </Text>
+        )}
+      </View>
+    ))
+  )}
+
+  {editing && (
+    <ServicesSection101
+      services={editableFields.services || []}
+      availableServices={availableServices}
+      onServicesChange={(updatedServices) => {
+        setEditableFields((prev) => ({
+          ...prev,
+          services: updatedServices,
+          errors: { ...prev.errors, services: "" },
+        }));
+      }}
+    />
+  )}
+</View>
+
         <View style={styles.section}>
   <Text style={styles.sectionTitle}>Operating Hours</Text>
-  {Object.entries(editableFields.operatingHours || {}).map(([day, hours]) => (
+  {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => {
+  const hours = editableFields.operatingHours?.[day] || { isClosed: false, start: "", end: "" };
+
+  return (
     <View key={day} style={styles.hourRow}>
       <Text style={styles.dayName}>{day}</Text>
       {editing ? (
@@ -435,7 +767,7 @@ if (data.user.completeProfile) {
             trackColor={{ false: "#767577", true: "#81b0ff" }}
             thumbColor={hours.isClosed ? "#f4f3f4" : "#f4f3f4"}
           />
-          {!hours.isClosed && (
+          {!hours.isClosed ? (
             <>
               <TouchableOpacity
                 style={styles.timeInput}
@@ -444,9 +776,7 @@ if (data.user.completeProfile) {
                   setShowTimePicker(true);
                 }}
               >
-                <Text style={styles.timeText}>
-                  {hours.start || 'Set Start'}
-                </Text>
+                <Text style={styles.timeText}>{hours.start || "Set Start"}</Text>
               </TouchableOpacity>
               <Text style={styles.timeSeparator}>-</Text>
               <TouchableOpacity
@@ -456,22 +786,48 @@ if (data.user.completeProfile) {
                   setShowTimePicker(true);
                 }}
               >
-                <Text style={styles.timeText}>
-                  {hours.end || 'Set End'}
-                </Text>
+                <Text style={styles.timeText}>{hours.end || "Set End"}</Text>
               </TouchableOpacity>
             </>
+          ) : (
+            <Text style={styles.closedText}>Closed</Text>
           )}
         </View>
       ) : (
         <Text style={styles.hours}>
-          {hours.isClosed ? 'Closed' : `${hours.start || '--:--'} to ${hours.end || '--:--'}`}
-        </Text>
+        {hours.isClosed
+          ? "Closed"
+          : hours.start && hours.end
+          ? `${hours.start} to ${hours.end}`
+          : "Hours not specified"}
+      </Text>
+      
       )}
     </View>
-  ))}
+  );
+})}
+
 </View>
+<View style={styles.section}>
+  <Text style={styles.sectionTitle}>Business Images</Text>
+  <ImageGallery
+    images={editableFields.images || []}
+    editing={editing}
+    onDeleteImage={deleteBusinessImage}
+    onAddImage={pickNewBusinessImage}
+  />
   
+  {!editing && editableFields.images?.length === 0 && (
+  <Text style={styles.noImagesText}>
+  You have no images yet. To add images, tap the edit icon at the top right corner of the page. This will enable edit mode, allowing you to add images. 
+  Once you've added images, tap the edit icon again to save your changes.
+</Text>
+
+  )}
+</View>
+
+
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Social Media</Text>
           {Object.entries(editableFields.socialLinks || {}).map(([platform, link]) => (
@@ -544,9 +900,13 @@ if (data.user.completeProfile) {
         if (!editableFields.town) {
           errors.town = "Town cannot be empty.";
         }
-        if (!editableFields.services || editableFields.services.length === 0) {
-          errors.services = "At least one service must be provided.";
+        if (userDetails.role === "Provider") {
+          if (!editableFields.services || editableFields.services.length === 0) {
+            console.warn("No services listed, allowing save");
+            editableFields.services = []; // Ensure it's always an array
+          }
         }
+        
         if (
           !editableFields.operatingHours ||
           Object.keys(editableFields.operatingHours).length === 0
@@ -584,18 +944,23 @@ if (data.user.completeProfile) {
           updateData.newPassword = passwordFields.newPassword;
         }
       }
-  
       if (userDetails.role === "Provider") {
         updateData.completeProfile = {
           businessAddress: editableFields.businessAddress,
           town: editableFields.town,
           yearsOfExperience: editableFields.yearsOfExperience,
-          services: editableFields.services,
+          services: editableFields.services.map(service => ({
+            name: service.name,
+            category: service.category,
+            price: parseFloat(service.price) || 0,
+            priceType: service.priceType?.toString() || "hour", // Ensures `priceType` is always a string
+          })),
+                 
           operatingHours: editableFields.operatingHours,
-          socialLinks: editableFields.socialLinks, // Can remain null
+          socialLinks: editableFields.socialLinks || {}, // Ensure socialLinks is always an object
         };
       }
-  
+      
       const response = await fetch(
         `https://service-booking-backend-eb9i.onrender.com/api/auth/update-user/${userDetails.id}`,
         {
@@ -760,6 +1125,21 @@ if (data.user.completeProfile) {
         </ScrollView>
       )}
       {renderBottomSidebar()}
+
+      {showTimePicker && (
+  <DateTimePicker
+    mode="time"
+    value={selectedTime}
+    is24Hour={true}
+    display="default"
+    onChange={(event, date) => {
+      if (date) {
+        handleTimePickerConfirm(date);
+      }
+    }}
+  />
+)}
+
     </SafeAreaView>
   );
 };
@@ -871,50 +1251,99 @@ const styles = StyleSheet.create({
     backgroundColor: "#F5F6FA",
   },
   section: {
-    marginBottom: 24,
+    marginVertical: 16,
+    paddingHorizontal: 16,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: "bold",
-    color: "#1a237e",
+    fontWeight: '600',
     marginBottom: 12,
+    color: '#333',
+  },
+  noImagesText: {
+    textAlign: 'center',
+    color: '#666',
+    fontSize: 16,
+    paddingVertical: 20,
   },
   serviceCard: {
-    backgroundColor: "#F5F6FA",
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 10,
+    backgroundColor: "#ffffff",
+    padding: 18,
+    borderRadius: 14,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    flexDirection: "column",
+    position: "relative", // Needed for absolute positioning of delete button
   },
+  
+  deleteServiceButton: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: "#E53935", 
+    borderRadius: 20,
+    width: 40, // Make button slightly bigger for better touch detection
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
+    zIndex: 2, // Ensures it's above other elements
+  },
+  
   serviceName: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1a237e",
+    marginBottom: 4,
   },
+  
   serviceDetail: {
     fontSize: 14,
-    color: "#666",
+    color: "#757575",
     marginTop: 4,
+    fontStyle: "italic",
   },
+  
   servicePrice: {
     fontSize: 16,
-    color: "#00AEEF",
+    color: "#27AE60",
     fontWeight: "bold",
-    marginTop: 6,
+    marginTop: 8,
+    backgroundColor: "#E8F5E9",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignSelf: "flex-start",
   },
-  hourRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
-  },
+  
   dayName: {
     fontSize: 16,
-    color: "#333",
+    fontWeight: '600',
+    color: '#1a237e',
+    width: 95,  // Increased width for full word visibility
+    marginRight: -19,  // Adjusted margin for better spacing
   },
+
   hours: {
-    fontSize: 16,
-    color: "#666",
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  closedText: {
+    color: '#dc3545',
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 10,
   },
   socialLink: {
     flexDirection: "row",
@@ -928,19 +1357,7 @@ const styles = StyleSheet.create({
     color: "#333",
     marginLeft: 10,
   },
-  hoursInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  timeInput: {
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 8,
-    padding: 8,
-    minWidth: 80,
-    alignItems: 'center',
-  },
+
   socialLinkInput: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1126,16 +1543,60 @@ const styles = StyleSheet.create({
   hoursInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'space-between', // Ensures even spacing
+    gap: 10,  // Increased gap for better spacing
+    width: '75%', // Ensures proper alignment inside the container
   },
+
   timeInput: {
     borderWidth: 1,
     borderColor: '#1a237e',
     borderRadius: 8,
-    padding: 8,
-    minWidth: 100,
+    padding: 5,
+    minWidth: 75, // Slightly increased width
     alignItems: 'center',
+    marginHorizontal: 5, // Adds spacing to avoid touching the edge
   },
+  imageContainer: {
+    width: 250,
+    height: 200,
+    marginRight: 15,
+    borderRadius: 10,
+    position: 'relative',
+},
+businessImage: {
+    width: 250,
+    height: 200,
+    borderRadius: 10,
+    resizeMode: "cover",
+},
+deleteIconContainer: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    backgroundColor: "white",
+    borderRadius: 20,
+    padding: 8,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+},
+noImagesText: {
+  textAlign: 'left',
+  color: '#555', // Slightly darker for better readability
+  fontSize: 17, // Slightly larger for emphasis
+  marginTop: -260,
+  fontStyle: 'italic',
+  paddingHorizontal: 20, // Ensures it doesn't touch screen edges
+  lineHeight: 24, // Improves readability
+  fontWeight: '500', // Makes it slightly bolder without being too strong
+  backgroundColor: 'rgba(0, 0, 0, 0.05)', // Light background for subtle contrast
+  paddingVertical: 12, // Adds breathing space
+  borderRadius: 10, // Soft rounded edges for a smooth look
+},
+
   
 });
 

@@ -24,6 +24,7 @@ const providerDetailsSchema = new mongoose.Schema({
   },
   paidAmount: { type: Number, default: 0 },
   freePlanExpiry: { type: Date, default: null },
+  lastReminderDate: { type: Date, default: null },
 });
 
 module.exports = mongoose.model("ProviderDetails", providerDetailsSchema);

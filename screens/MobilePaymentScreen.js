@@ -35,7 +35,7 @@ const MobilePaymentScreen = ({ navigation }) => {
         <View style={styles.amountCard}>
           <MaterialIcons name="smartphone" size={32} color="#1a237e" />
           <Text style={styles.transferPreviewText}>
-            NAD 200.00
+            NAD 180.00
           </Text>
         </View>
 
@@ -58,8 +58,8 @@ const MobilePaymentScreen = ({ navigation }) => {
             />
             <DetailRow 
               label="Amount" 
-              value="NAD 200.00" 
-              onCopy={() => handleCopy('200.00')}
+              value="NAD 180.00" 
+              onCopy={() => handleCopy('180.00')}
               isLast
             />
           </View>
@@ -104,7 +104,7 @@ const MobilePaymentScreen = ({ navigation }) => {
             />
             <NoteItem 
               icon="attach-money" 
-              text="Enter the amount: NAD 200.00" 
+              text="Enter the amount: NAD 180.00" 
             />
             <NoteItem 
               icon="check-circle" 

@@ -11,7 +11,7 @@ const Notification = require("../models/notificationModel");
 const Service = require("../models/serviceModel");
 const Booking = require("../models/BookingSchema");
 const Review = require("../models/Review");
-
+const moment = require("moment");
 // Register User
 exports.registerUser = async (req, res) => {
   try {
@@ -196,15 +196,16 @@ exports.requestPasswordReset = async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found." });
     }
 
-    // Generate OTP and expiration time
+    // Generate OTP and expiration time (Now 60 seconds)
     const otp = generateOTP();
-    const otpExpires = Date.now() + 10 * 60 * 1000; // OTP valid for 10 minutes
+    const otpExpires = Date.now() + 60 * 1000; // OTP valid for **60 seconds**
 
     // Update the user with OTP and expiration
     user.resetPasswordOTP = otp;
     user.resetPasswordExpires = otpExpires;
     await user.save();
 
+    // Email with OTP
     const mailOptions = {
       from: `"Opaleka Support" <${process.env.EMAIL_USER}>`,
       to: email,
@@ -213,29 +214,30 @@ exports.requestPasswordReset = async (req, res) => {
         <div style="font-family: Arial, sans-serif; padding: 20px;">
           <h2 style="color: #1a237e;">Reset Your Password</h2>
           <p>Dear ${user.name},</p>
-          <p>We received a request to reset your password. Please use the OTP below to proceed:</p>
+          <p>We received a request to reset your password. Use the OTP below to proceed:</p>
           <h3 style="background-color: #1a237e; color: white; padding: 10px; text-align: center;">${otp}</h3>
-          <p><strong>Note:</strong> This OTP is valid for 10 minutes.</p>
+          <p><strong>Note:</strong> This OTP is valid for <b>60 seconds</b>.</p>
           <p>If you did not request a password reset, please ignore this email or contact our support team.</p>
           <p>Best Regards,</p>
           <p><strong>Opaleka Team</strong></p>
         </div>
       `,
     };
-    
+
     await transporter.sendMail(mailOptions);
 
     // Respond with success message and user role
     res.status(200).json({
       success: true,
       message: "OTP sent to your email.",
-      role: user.role, // Include user role in the response
+      role: user.role, // Include user role in response
     });
   } catch (error) {
     console.error("Error sending OTP:", error.message);
     res.status(500).json({ success: false, message: "Could not send OTP. Try again later." });
   }
 };
+
 
 // Step 2: Reset Password
 exports.resetPassword = async (req, res) => {
@@ -590,13 +592,13 @@ exports.verifyDocuments = async (req, res) => {
           Once you complete your first service booking, your account status will change from 
           <strong>Free Plan</strong> to <strong style="color: #E67E22;">Unpaid</strong>. 
           To continue receiving bookings, you must <strong>activate your account</strong> by paying 
-          <strong style="color: #E74C3C;">NAD 200</strong> every 30 days.
+          <strong style="color: #E74C3C;">NAD 180</strong> every 30 days.
         </p>
   
         <h3 style="color: #1a237e; margin: 20px 0 15px 0;">💡 Important Information</h3>
         <ul style="margin: 0 0 15px 0; padding-left: 20px;">
           <li style="margin-bottom: 8px;">✅ Your <strong>Free Plan</strong> allows you to receive <strong>your first service request</strong>.</li>
-          <li style="margin-bottom: 8px;">✅ After your <strong>first booking</strong>, payment of <strong>NAD 200</strong> is required.</li>
+          <li style="margin-bottom: 8px;">✅ After your <strong>first booking</strong>, payment of <strong>NAD 180</strong> is required.</li>
           <li style="margin-bottom: 8px;">❌ If payment is not made, your <strong>profile will be hidden</strong> from clients.</li>
         </ul>
   
@@ -639,7 +641,7 @@ exports.verifyDocuments = async (req, res) => {
 
     // Plain text version
     const textBody = verificationStatus === "Verified" 
-      ? `Congratulations ${user.name}! Your Opaleka account has been verified. You can now receive client requests. After your first booking, a payment of NAD 200 will be required every 30 days to maintain your account.`
+      ? `Congratulations ${user.name}! Your Opaleka account has been verified. You can now receive client requests. After your first booking, a payment of NAD 180 will be required every 30 days to maintain your account.`
       : `Important: Your application was rejected. Reason: ${adminNotes || "No details provided"}. Please review your documents and re-submit.`;
 
     // Mail options
@@ -786,7 +788,7 @@ exports.updatePaymentStatus = async (req, res) => {
     }
 
     // Check payment status and act accordingly
-    if (amountPaid < 300) {
+    if (amountPaid < 180) {
       // Send email for insufficient payment
       const transporter = nodemailer.createTransport({
         service: "Gmail",
@@ -797,8 +799,8 @@ exports.updatePaymentStatus = async (req, res) => {
       });
 
       const emailSubject = "Payment Received - Insufficient Amount";
-      const emailBody = `Dear ${user.name},\n\nWe have received your payment of NAD ${amountPaid}. Unfortunately, this amount does not meet the required NAD 300 to activate your account.\n\nPlease complete the remaining payment of NAD ${
-        300 - amountPaid
+      const emailBody = `Dear ${user.name},\n\nWe have received your payment of NAD ${amountPaid}. Unfortunately, this amount does not meet the required NAD 180 to activate your account.\n\nPlease complete the remaining payment of NAD ${
+        180 - amountPaid
       } to activate your account.\n\nBest regards,\nThe Team`;
 
       const mailOptions = {
@@ -976,56 +978,53 @@ exports.updateProfilePicture = async (req, res) => {
     });
   }
 };
-
 exports.getUserDetails1 = async (req, res) => {
   try {
     const userId = req.user.id;
-    
+
     // Validate userId format
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: "Invalid user ID format" });
     }
 
-    // Get user with password fields
-    const user = await User.findById(userId)
-  .select('-password') // Exclude password field
-  .lean();
-
-
+    // Get user details (excluding password)
+    const user = await User.findById(userId).select("-password").lean();
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    const completeProfile = await CompleteProfile.findOne({ userId }).lean();
+    // Get complete profile details
+    let completeProfile = await CompleteProfile.findOne({ userId })
+      .select("businessAddress town yearsOfExperience services operatingHours socialLinks images")
+      .lean();
 
-const response = {
-  success: true,
-  user: {
-    ...user,
-    completeProfile: completeProfile || null, // Ensure it’s included
-    businessName: user.businessName || ""
-  }
-};
-
-
-    // Add complete profile for providers
-    if (user.role === "Provider") {
-      const completeProfile = await CompleteProfile.findOne({ userId })
-        .select('businessAddress town yearsOfExperience services operatingHours socialLinks images')
-        .lean();
-
-        response.user = {
-          ...response.user,
-          completeProfile: completeProfile || {
-            businessAddress: "",
-            town: "",
-            yearsOfExperience: "",
-            services: [],
-            operatingHours: defaultOperatingHours,
-            socialLinks: defaultSocialLinks,
-            images: []
-          }
-        };
-        
+    // Ensure images array exists & format URLs correctly
+    if (completeProfile && completeProfile.images) {
+      completeProfile.images = completeProfile.images.map((img) =>
+        img.startsWith("http") ? img : `http://192.168.8.138:5001/${img.replace(/\\/g, "/")}`
+      );
+    } else {
+      completeProfile = {
+        businessAddress: "",
+        town: "",
+        yearsOfExperience: "",
+        services: [],
+        operatingHours: {},
+        socialLinks: {},
+        images: [],
+      };
     }
+
+    // Construct final response
+    const response = {
+      success: true,
+      user: {
+        ...user,
+        completeProfile,
+        businessName: user.businessName || "",
+      },
+    };
+
+    // Log response for debugging
+    console.log("User Details Response:", JSON.stringify(response, null, 2));
 
     res.status(200).json(response);
   } catch (error) {
@@ -2118,3 +2117,324 @@ exports.getProviderReviews = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch reviews" });
   }
 };
+
+exports.deleteService = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { serviceId } = req.params; // Get service ID from request parameters
+
+    if (!userId || !serviceId) {
+      return res.status(400).json({ success: false, message: "Invalid request. User ID and Service ID are required." });
+    }
+
+    const userProfile = await CompleteProfile.findOne({ userId });
+
+    if (!userProfile) {
+      return res.status(404).json({ success: false, message: "User profile not found." });
+    }
+
+    // Remove the service from the user's services array
+    userProfile.services = userProfile.services.filter(service => service._id.toString() !== serviceId);
+
+    await userProfile.save(); // Save updated profile
+
+    res.status(200).json({ success: true, message: "Service deleted successfully.", services: userProfile.services });
+  } catch (error) {
+    console.error("Error deleting service:", error);
+    res.status(500).json({ success: false, message: "Failed to delete service." });
+  }
+};
+
+
+exports.addServiceToProvider = async (req, res) => {
+  try {
+    const { userId, name, category, description, price, priceType } = req.body;
+
+    // Validate required fields
+    if (!userId || !name || !category || !description || !price || !priceType) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields (userId, name, category, description, price, priceType) are required.",
+      });
+    }
+
+    // Find existing service with the same name
+    let existingService = await Service.findOne({ name });
+
+    if (!existingService) {
+      // Check if category exists
+      const existingCategoryService = await Service.findOne({ category });
+
+      if (!existingCategoryService) {
+        return res.status(400).json({
+          success: false,
+          message: `Category '${category}' does not exist. Please choose a valid category.`,
+        });
+      }
+
+      // Create a new custom service using details from an existing category
+      existingService = new Service({
+        name,
+        category,
+        description,
+        icon: existingCategoryService.icon, // Use the same icon
+        color: existingCategoryService.color, // Use the same color
+        imageUrl: existingCategoryService.imageUrl, // Use the same image
+      });
+
+      await existingService.save();
+    }
+
+    // Find the provider's complete profile
+    let completeProfile = await CompleteProfile.findOne({ userId });
+
+    if (!completeProfile) {
+      return res.status(404).json({
+        success: false,
+        message: "Provider profile not found. Please complete your profile first.",
+      });
+    }
+
+    // Check if the service is already in the provider's profile
+    const isServiceAlreadyAdded = completeProfile.services.some(
+      (service) => service.name === existingService.name
+    );
+
+    if (isServiceAlreadyAdded) {
+      return res.status(400).json({
+        success: false,
+        message: `Service '${name}' is already added to your profile.`,
+      });
+    }
+
+    // Add the service to the provider's profile
+    completeProfile.services.push({
+      name: existingService.name,
+      category: existingService.category,
+      description: existingService.description,
+      icon: existingService.icon,
+      color: existingService.color,
+      imageUrl: existingService.imageUrl,
+      price,
+      priceType,
+    });
+
+    await completeProfile.save();
+
+    res.status(201).json({
+      success: true,
+      message: `Service '${name}' added successfully to the provider's profile.`,
+      service: completeProfile.services,
+    });
+  } catch (error) {
+    console.error("Error adding service to provider:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Failed to add service. Please try again later.",
+    });
+  }
+};
+
+
+exports.addImage = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No image uploaded.",
+      });
+    }
+
+    // Find the user's complete profile
+    let completeProfile = await CompleteProfile.findOne({ userId });
+
+    if (!completeProfile) {
+      return res.status(404).json({
+        success: false,
+        message: "User profile not found. Please complete your profile first.",
+      });
+    }
+
+    // Add the new image path to the images array
+    const imagePath = req.file.path;
+    completeProfile.images.push(imagePath);
+    await completeProfile.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Image added successfully.",
+      images: completeProfile.images,
+    });
+  } catch (error) {
+    console.error("Error adding image:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to add image.",
+    });
+  }
+};
+exports.deleteImage = async (req, res) => {
+  try {
+      const userId = req.user.id;
+      let { imagePath } = req.body;
+
+      console.log("Received request to delete image:", imagePath);
+
+      if (!imagePath) {
+          return res.status(400).json({
+              success: false,
+              message: "Image path is required.",
+          });
+      }
+
+      // Ensure uniform path format (convert to backslashes for Windows)
+      imagePath = imagePath.replace(/\//g, '\\'); // Convert `/` to `\` for matching
+
+      let completeProfile = await CompleteProfile.findOne({ userId });
+
+      if (!completeProfile) {
+          return res.status(404).json({
+              success: false,
+              message: "User profile not found.",
+          });
+      }
+
+      console.log("Before deletion, images array:", completeProfile.images);
+
+      // Ensure we are removing the correct image path
+      completeProfile.images = completeProfile.images.filter(img => img !== imagePath);
+
+      console.log("After deletion, images array:", completeProfile.images);
+
+      // Save the updated profile
+      await completeProfile.save();
+
+      console.log("Image successfully removed from database.");
+
+      res.status(200).json({
+          success: true,
+          message: "Image deleted successfully.",
+          images: completeProfile.images,
+      });
+  } catch (error) {
+      console.error("Error deleting image:", error);
+      res.status(500).json({
+          success: false,
+          message: "Failed to delete image.",
+      });
+  }
+};
+
+const cron = require("node-cron");
+
+exports.unpaidReminder = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Find provider details
+    const providerDetails = await ProviderDetails.findOne({ userId });
+
+    if (!providerDetails || !["Free", "Unpaid"].includes(providerDetails.paymentStatus)) {
+      return res.status(200).json({
+        success: true,
+        showReminder: false, // No reminder needed for paid users
+      });
+    }
+
+    // ✅ Only show reminder without sending an email
+    res.status(200).json({
+      success: true,
+      showReminder: true, // Show reminder but DO NOT send an email
+      status: providerDetails.paymentStatus,
+    });
+
+  } catch (error) {
+    console.error("Error in unpaid reminder:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to process unpaid provider reminder.",
+    });
+  }
+};
+
+cron.schedule("0 8 * * 3", async () => {  // ✅ Runs at 08:00 UTC (which is 10:00 AM in Namibia)
+  try {
+    console.log("📩 Sending weekly unpaid reminders...");
+
+    const unpaidProviders = await ProviderDetails.find({ 
+      paymentStatus: { $in: ["Free", "Unpaid"] } 
+    }).populate("userId", "email name");
+
+    // ✅ Filter out entries where userId is null
+    const validProviders = unpaidProviders.filter(provider => provider.userId !== null);
+
+    const transporter = nodemailer.createTransport({
+      service: "Gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    for (const provider of validProviders) {
+      let emailSubject, emailBody;
+
+      if (provider.paymentStatus === "Free") {
+        emailSubject = "🚀 Your Free Trial is Active – Here's What You Need to Know!";
+        emailBody = `
+          <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+            <h2 style="color: #1a237e;">🎉 Your Free Trial is Active</h2>
+            <p>Dear ${provider.userId.name},</p>
+            <p>You are currently on a <strong>free trial</strong> with Opaleka. This means:</p>
+            <ul>
+              <li>✔ You can <strong>receive one booking</strong> for free.</li>
+              <li>✔ Your profile is visible to clients, but priority is given to paid providers.</li>
+              <li>✔ To remain visible after your first booking, you need to activate your account.</li>
+            </ul>
+            
+            <h3 style="color: #1a237e;">What’s Next?</h3>
+            <p>To continue receiving bookings and gain full access to Opaleka’s features, ensure your account is active with a minimum payment of <strong>NAD 180</strong>.</p>
+
+            <p>Best Regards,</p>
+            <p><strong>Opaleka Team</strong></p>
+          </div>
+        `;
+      } else {
+        emailSubject = "⚠️ Your Profile is Currently Inactive – Action Required!";
+        emailBody = `
+          <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+            <h2 style="color: #1a237e;">⚠️ Your Provider Profile is Inactive</h2>
+            <p>Dear ${provider.userId.name},</p>
+            <p>Your account status is currently <strong>unpaid</strong>, which means:</p>
+            <ul>
+              <li>❌ Your profile is <strong>hidden</strong> from clients.</li>
+              <li>❌ You are not receiving any new bookings.</li>
+              <li>✅ To restore visibility and resume bookings, a minimum payment of <strong>NAD 180</strong> is required.</li>
+            </ul>
+
+            <h3 style="color: #1a237e;">How to Proceed?</h3>
+            <p>Once your payment is processed, your profile will be reactivated, and clients will be able to find and book your services immediately.</p>
+
+            <p>Best Regards,</p>
+            <p><strong>Opaleka Team</strong></p>
+          </div>
+        `;
+      }
+
+      const mailOptions = {
+        from: `"Opaleka Billing" <${process.env.EMAIL_USER}>`,
+        to: provider.userId.email,
+        subject: emailSubject,
+        html: emailBody,
+      };
+
+      await transporter.sendMail(mailOptions);
+    }
+
+    console.log("✅ Weekly reminders sent successfully!");
+  } catch (error) {
+    console.error("❌ Error sending weekly reminders:", error);
+  }
+});

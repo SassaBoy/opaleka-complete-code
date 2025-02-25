@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Platform } from "react-native";
+import { Platform, AppState} from "react-native";
 
 
 import {
@@ -15,6 +15,7 @@ import {
   Dimensions,
   RefreshControl,
   LogBox,
+  FlatList,
 } from "react-native";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,10 +27,15 @@ import Toast from "react-native-toast-message";
 import * as ImagePicker from "expo-image-picker";
 import QuickTips from "./QuickTips";
 import axios from "axios";
+import PaymentReminder from "./PaymentReminder";
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 const HomeScreen = ({ navigation, route }) => {
   const [userDetails, setUserDetails] = useState(null); // Store user details
   const [location, setLocation] = useState("Namibia"); // Default location
   const [averageRating, setAverageRating] = useState(0); // Initialize with a default value
+  const [showReminder, setShowReminder] = useState(false);
+  const [status, setStatus] = useState(""); 
+  
 
   const trialDaysLeft = 5;
 
@@ -52,6 +58,7 @@ const HomeScreen = ({ navigation, route }) => {
   LogBox.ignoreAllLogs();
 
 
+  
   const handleLogout = async () => {
     try {
       await AsyncStorage.removeItem("authToken");
@@ -177,35 +184,43 @@ const HomeScreen = ({ navigation, route }) => {
     );
   }
   
-
-    const fetchCategories = async () => {
-      try {
-        const response = await fetch(`https://service-booking-backend-eb9i.onrender.com/api/auth/services`); // Fetch all services
-        const data = await response.json();
-        if (data.success && data.services) {
-          // Group services by category
-          const groupedCategories = data.services.reduce((acc, service) => {
-            if (!acc[service.category]) {
-              acc[service.category] = {
-                category: service.category,
-                color: service.color,
-                icon: service.icon,
-                services: [],
-              };
-            }
-            acc[service.category].services.push(service);
-            return acc;
-          }, {});
-    
-          setCategories(Object.values(groupedCategories)); // Convert object to array
-        } else {
-          console.error("Failed to fetch categories:", data.message);
-        }
-      } catch (error) {
-        console.error("Error fetching categories:", error);
+  const fetchCategories = async () => {
+    try {
+      // Try to load cached categories first
+      const cachedCategories = await AsyncStorage.getItem("categories");
+      if (cachedCategories) {
+        setCategories(JSON.parse(cachedCategories));
       }
-    };
-    
+      
+      const response = await fetch(`https://service-booking-backend-eb9i.onrender.com/api/auth/services`);
+      const data = await response.json();
+      if (data.success && data.services) {
+        // Group services by category
+        const groupedCategories = data.services.reduce((acc, service) => {
+          if (!acc[service.category]) {
+            acc[service.category] = {
+              category: service.category,
+              color: service.color,
+              icon: service.icon,
+              services: [],
+            };
+          }
+          acc[service.category].services.push(service);
+          return acc;
+        }, {});
+        
+        const categoriesArray = Object.values(groupedCategories);
+        setCategories(categoriesArray);
+        // Cache the categories for faster loading next time
+        await AsyncStorage.setItem("categories", JSON.stringify(categoriesArray));
+      } else {
+        console.error("Failed to fetch categories:", data.message);
+      }
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
+  };
+  
     const fetchCategories1 = async () => {
       try {
         const response = await fetch(`https://service-booking-backend-eb9i.onrender.com/api/auth/services`); // Fetch all services
@@ -224,12 +239,17 @@ const HomeScreen = ({ navigation, route }) => {
     
     // Fetch categories on component mount
     useEffect(() => {
-      fetchCategories();
-      fetchCategories1();
+      const loadCategories = async () => {
+        await fetchCategories();
+        await fetchCategories1();
+        setCategories((prev) => [...prev]); // Forces re-render
+      };
+    
+      loadCategories();
       fetchPendingBookingsCount();
       handleRefresh();
-      
     }, []);
+    
 
 
     
@@ -257,7 +277,7 @@ const HomeScreen = ({ navigation, route }) => {
 
   const quickActions = [
     {
-      title: "Balance: NAD 200.00",
+      title: "Balance: NAD 180.00",
       icon: "account-balance-wallet",
       colors: ['#009688', '#00796B'], // Sophisticated teal gradient (modern financial feel)
       onPress: null,
@@ -283,48 +303,52 @@ const HomeScreen = ({ navigation, route }) => {
     }
 ];
   
-  
-  const fetchUserDetails = async () => {
-    try {
-      const token = await AsyncStorage.getItem("authToken");
-      if (!token) {
-        setIsLoggedIn(false);
-        setUserDetails(null);
-        setLoading(false);
-        return;
-      }
-  
-      const response = await fetch(
-        `https://service-booking-backend-eb9i.onrender.com/api/auth/user-details`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-  
-      if (response.status === 401) {
-        await AsyncStorage.removeItem("authToken");
-        setIsLoggedIn(false);
-        setUserDetails(null);
-        return;
-      }
-  
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.user) {
-          setIsLoggedIn(true);
-          setUserDetails(data.user);
-        }
-      }
-    } catch (error) {
-      console.log("Error fetching user details:", error.message);
-    } finally {
+const fetchUserDetails = async () => {
+  try {
+    const token = await AsyncStorage.getItem("authToken");
+    if (!token) {
+      setIsLoggedIn(false);
+      setUserDetails(null);
       setLoading(false);
+      return;
     }
-  };
+    // First, try to load cached user data (if available)
+    const cachedUser = await AsyncStorage.getItem("userDetails");
+    if (cachedUser) {
+      setUserDetails(JSON.parse(cachedUser));
+    }
+    
+    // Now fetch the latest details from the API
+    const response = await fetch(
+      `https://service-booking-backend-eb9i.onrender.com/api/auth/user-details`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
   
+    if (response.status === 401) {
+      await AsyncStorage.removeItem("authToken");
+      setIsLoggedIn(false);
+      setUserDetails(null);
+      return;
+    }
   
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success && data.user) {
+        setIsLoggedIn(true);
+        setUserDetails(data.user);
+        // Cache the user details for next time
+        await AsyncStorage.setItem("userDetails", JSON.stringify(data.user));
+      }
+    }
+  } catch (error) {
+    console.log("Error fetching user details:", error.message);
+  } finally {
+    setLoading(false);
+  }
+};
+
   const fetchNotificationCount = async () => {
     try {
       const token = await AsyncStorage.getItem("authToken");
@@ -349,6 +373,97 @@ const HomeScreen = ({ navigation, route }) => {
       console.error("Error fetching unread notification count:", error);
     }
   };
+
+  const checkReminder = async () => {
+    try {
+      console.log("🔍 Checking Reminder Logic...");
+  
+      const token = await AsyncStorage.getItem("authToken");
+      if (!token) {
+        console.log("⛔ No auth token found, skipping reminder check.");
+        return;
+      }
+  
+      console.log("🔍 Fetching user ID from backend...");
+      const userResponse = await axios.get(
+        "https://service-booking-backend-eb9i.onrender.com/api/auth/user-details",
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+  
+      if (!userResponse.data.success || !userResponse.data.user?.id) {
+        console.log("⛔ Failed to fetch user ID, skipping reminder check.");
+        return;
+      }
+  
+      const userId = userResponse.data.user.id;
+      const userRole = userResponse.data.user.role || "Client"; // Default to "client" if role is missing
+      console.log("✅ Retrieved User ID:", userId);
+      console.log("🔹 User Role:", userRole);
+  
+      // ✅ Only proceed if the user is a provider
+      if (userRole !== "Provider") {
+        console.log("⛔ User is not a provider, skipping reminder check.");
+        return;
+      }
+  
+      console.log("📡 Fetching reminder status from backend...");
+      const response = await axios.get(
+        "https://service-booking-backend-eb9i.onrender.com/api/auth/unpaid-reminder",
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+  
+      console.log("🔹 Reminder API Response:", response.data);
+  
+      if (response.data.success) {
+        const newStatus = response.data.status || "Free";
+        console.log("💾 Saving status:", newStatus);
+        await AsyncStorage.setItem(`paymentStatus_${userId}`, newStatus);
+        setStatus(newStatus);
+      }
+  
+      // ✅ Ensure local date format matches storage
+      const today = new Date();
+      const todayDateString = `${today.getFullYear()}-${(today.getMonth() + 1)
+        .toString()
+        .padStart(2, "0")}-${today.getDate().toString().padStart(2, "0")}`;
+  
+      // ✅ Retrieve last shown reminder date
+      const lastReminderDate = await AsyncStorage.getItem(`lastReminderShown_${userId}`);
+  
+      console.log(`📆 Today's Date: ${todayDateString}`);
+      console.log(`🕵️ Last Reminder Shown Date: ${lastReminderDate}`);
+  
+      // ✅ If the last reminder date does not match today, show the modal
+      if (!lastReminderDate || lastReminderDate !== todayDateString) {
+        console.log(`✅ Showing Reminder Modal for Provider ${userId} today...`);
+  
+        await AsyncStorage.setItem(`lastReminderShown_${userId}`, todayDateString);
+        console.log(`💾 Saved last reminder shown date for Provider ${userId}:`, todayDateString);
+  
+        setShowReminder(true);
+      } else {
+        console.log("⏳ Reminder already shown today, skipping.");
+      }
+    } catch (error) {
+      console.error("❌ Error checking payment reminder:", error);
+    }
+  };
+  
+  useEffect(() => {
+    checkReminder(); // Run on app startup
+  
+    // ✅ Listen for app state changes (detects when app is reopened)
+    const subscription = AppState.addEventListener("change", async (nextAppState) => {
+      if (nextAppState === "active") {
+        console.log("📲 App came into foreground, rechecking reminder...");
+        await checkReminder(); // Check again when the app is opened
+      }
+    });
+  
+    return () => subscription.remove(); // Cleanup listener
+  }, []);
+  
+  
   
   useEffect(() => {
     const checkPendingReviews = async () => {
@@ -392,6 +507,7 @@ const HomeScreen = ({ navigation, route }) => {
   }, []);
   
 
+  
   useEffect(() => {
     const fetchAverageRating = async () => {
       try {
@@ -858,44 +974,43 @@ const renderEarningsModal = () => (
     </View>
   )}
 </View>
-
-
-
-      <Text style={styles.sectionTitle}>Categories</Text>
-      <ScrollView
-  horizontal
-  showsHorizontalScrollIndicator={false}
-  style={styles.categoriesScroll}
->
-  {categories.map((category, index) => (
-    <TouchableOpacity
-      key={category._id || index} // Use _id if available, fallback to index
-      style={[
-        styles.categoryCard,
-        selectedCategory === category.category && styles.selectedCategory,
-      ]}
-      onPress={async () => {
-        setSelectedCategory(category.category);
-        try {
-          const response = await fetch(
-            `https://service-booking-backend-eb9i.onrender.com/api/auth/services?category=${encodeURIComponent(category.category)}` // Fetch services by category name
-          );
-          const data = await response.json();
-          if (data.success && data.services) {
-            navigation.navigate("ServicesPage", {
-              categoryName: category.category,
-              services: data.services,
-            });
-          } else {
-            console.error("Failed to fetch services:", data.message);
+<View style={styles.categoriesContainer}>
+  <Text style={styles.sectionTitle}>Categories</Text>
+  <FlatList
+    data={categories}
+    keyExtractor={(item) => item._id || item.category}
+    horizontal
+    showsHorizontalScrollIndicator={false}
+    nestedScrollEnabled={true}
+    keyboardShouldPersistTaps="always"
+    contentContainerStyle={styles.categoriesScroll}
+    extraData={categories} // Force re-render when categories change
+    renderItem={({ item: category }) => (
+      <TouchableOpacity
+        style={[
+          styles.categoryCard,
+          selectedCategory === category.category && styles.selectedCategory,
+        ]}
+        onPress={async () => {
+          setSelectedCategory(category.category);
+          try {
+            const response = await fetch(
+              `https://service-booking-backend-eb9i.onrender.com/api/auth/services?category=${encodeURIComponent(category.category)}`
+            );
+            const data = await response.json();
+            if (data.success && data.services) {
+              navigation.navigate("ServicesPage", {
+                categoryName: category.category,
+                services: data.services,
+              });
+            } else {
+              console.error("Failed to fetch services:", data.message);
+            }
+          } catch (error) {
+            console.error("Error fetching services:", error);
           }
-        } catch (error) {
-          console.error("Error fetching services:", error);
-        }
-        
-      }}
-    >
-      <View>
+        }}
+      >
         <LinearGradient
           colors={[category.color, shadeColor(category.color, -20)]}
           style={styles.categoryGradient}
@@ -903,12 +1018,23 @@ const renderEarningsModal = () => (
           <Icon name={category.icon} size={32} color="#fff" />
         </LinearGradient>
         <Text style={styles.categoryName}>{category.category}</Text>
+      </TouchableOpacity>
+    )}
+    ListEmptyComponent={
+      <View style={styles.emptyListContainer}>
+        <Text style={styles.emptyListText}>No categories available</Text>
       </View>
-    </TouchableOpacity>
-  ))}
-</ScrollView>
-
-
+    }
+    // Add these props to ensure proper scrolling
+    removeClippedSubviews={false} // Prevents clipping issues
+    initialNumToRender={categories.length} // Render all items initially
+    getItemLayout={(data, index) => ({
+      length: 100, // Width of each category card
+      offset: 100 * index, // Offset based on index
+      index,
+    })}
+  />
+</View>
 
       <Text style={styles.sectionTitle}>Highlights</Text>
       <View style={styles.advertContainer}>
@@ -999,6 +1125,10 @@ const renderEarningsModal = () => (
 
   return (
     <SafeAreaView style={styles.container}>
+  {showReminder && <PaymentReminder onClose={() => setShowReminder(false)} status={status} />}
+
+
+  
       <Modal
         visible={sidebarVisible}
         animationType="slide"
@@ -1122,17 +1252,17 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 16,
   },
+  categoriesContainer: {
+    marginBottom: 24, // Add some spacing below the categories
+  },
   categoriesScroll: {
-    paddingLeft: 16,
-    marginBottom: 24,
+    paddingLeft: 16, // Add padding to the left for the first item
+    paddingRight: 16, // Add padding to the right for the last item
   },
   categoryCard: {
-    marginRight: 16,
+    marginRight: 16, // Space between categories
     alignItems: 'center',
-    width: 100,
-  },
-  selectedCategory: {
-    transform: [{ scale: 1.05 }],
+    width: 100, // Fixed width for each category card
   },
   categoryGradient: {
     width: 80,

@@ -45,6 +45,10 @@ const BookingSchema = new mongoose.Schema(
       type: Boolean,
       default: false, // Indicates if the review for this booking has been skipped
     },
+    deletedByUsers: {
+      type: [mongoose.Schema.Types.ObjectId], // Stores IDs of users who "deleted" it
+      default: [],
+    },
     createdAt: {
       type: Date,
       default: Date.now,

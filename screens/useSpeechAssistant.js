@@ -32,7 +32,7 @@
 
 //     try {
 //       // Send query to backend with ChatGPT integration
-//       const response = await axios.post('http://192.168.8.138:5001/api/ask-question', { query: userQuery });
+//       const response = await axios.post('https://service-booking-backend-eb9i.onrender.com/api/ask-question', { query: userQuery });
 //       const reply = response.data.answer || "I'm not sure about that. Try again.";
       
 //       // Use Expo Speech to read out the AI's response

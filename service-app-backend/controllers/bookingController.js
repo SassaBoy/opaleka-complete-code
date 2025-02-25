@@ -4,7 +4,7 @@ const Booking = require("../models/BookingSchema"); // Import the Booking model
 const nodemailer = require("nodemailer");
 const { Op } = require('sequelize');
 const ProviderDetails = require("../models/providerDetailsModel");
-
+const moment = require("moment");
 
 exports.bookService = async (req, res) => {
   try {
@@ -110,51 +110,55 @@ exports.bookService = async (req, res) => {
       },
     });
 
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: provider.email,
-      subject: `New Booking Notification - ${serviceName}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; padding: 20px;">
-          <h2 style="color: #1a237e;">New Booking Received</h2>
-          <p>Dear <strong>${provider.name}</strong>,</p>
-          <p>You have received a new booking request from <strong>${client.name}</strong>. Please find the details below:</p>
-          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-            <tr>
-              <td style="padding: 8px; border: 1px solid #e0e0e0; background-color: #f9f9f9; font-weight: bold;">Service</td>
-              <td style="padding: 8px; border: 1px solid #e0e0e0;">${serviceName}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px; border: 1px solid #e0e0e0; background-color: #f9f9f9; font-weight: bold;">Date</td>
-              <td style="padding: 8px; border: 1px solid #e0e0e0;">${date}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px; border: 1px solid #e0e0e0; background-color: #f9f9f9; font-weight: bold;">Time</td>
-              <td style="padding: 8px; border: 1px solid #e0e0e0;">${time}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px; border: 1px solid #e0e0e0; background-color: #f9f9f9; font-weight: bold;">Price</td>
-              <td style="padding: 8px; border: 1px solid #e0e0e0;">N$${price}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px; border: 1px solid #e0e0e0; background-color: #f9f9f9; font-weight: bold;">Client Email</td>
-              <td style="padding: 8px; border: 1px solid #e0e0e0;">${client.email}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px; border: 1px solid #e0e0e0; background-color: #f9f9f9; font-weight: bold;">Client Phone</td>
-              <td style="padding: 8px; border: 1px solid #e0e0e0;">${client.phone}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px; border: 1px solid #e0e0e0; background-color: #f9f9f9; font-weight: bold;">Client Address</td>
-              <td style="padding: 8px; border: 1px solid #e0e0e0;">${address}</td>
-            </tr>
-          </table>
-          <p>To view more details, please log in to your dashboard.</p>
-          <p>Best regards,</p>
-          <p><strong>Opaleka Team</strong></p>
-        </div>
-      `,
-    };
+    // Format date and time
+const formattedDate = moment(date).format("dddd, MMMM D, YYYY"); // Example: "Saturday, January 26, 2025"
+const formattedTime = moment(time, "HH:mm").format("hh:mm A");   // Example: "02:30 PM"
+
+const mailOptions = {
+  from: process.env.EMAIL_USER,
+  to: provider.email,
+  subject: `New Booking Notification - ${serviceName}`,
+  html: `
+    <div style="font-family: Arial, sans-serif; padding: 20px;">
+      <h2 style="color: #1a237e;">New Booking Received</h2>
+      <p>Dear <strong>${provider.name}</strong>,</p>
+      <p>You have received a new booking request from <strong>${client.name}</strong>. Please find the details below:</p>
+      <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+        <tr>
+          <td style="padding: 8px; border: 1px solid #e0e0e0; background-color: #f9f9f9; font-weight: bold;">Service</td>
+          <td style="padding: 8px; border: 1px solid #e0e0e0;">${serviceName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; border: 1px solid #e0e0e0; background-color: #f9f9f9; font-weight: bold;">Date</td>
+          <td style="padding: 8px; border: 1px solid #e0e0e0;">${formattedDate}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; border: 1px solid #e0e0e0; background-color: #f9f9f9; font-weight: bold;">Time</td>
+          <td style="padding: 8px; border: 1px solid #e0e0e0;">${formattedTime}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; border: 1px solid #e0e0e0; background-color: #f9f9f9; font-weight: bold;">Price</td>
+          <td style="padding: 8px; border: 1px solid #e0e0e0;">N$${price}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; border: 1px solid #e0e0e0; background-color: #f9f9f9; font-weight: bold;">Client Email</td>
+          <td style="padding: 8px; border: 1px solid #e0e0e0;">${client.email}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; border: 1px solid #e0e0e0; background-color: #f9f9f9; font-weight: bold;">Client Phone</td>
+          <td style="padding: 8px; border: 1px solid #e0e0e0;">${client.phone}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; border: 1px solid #e0e0e0; background-color: #f9f9f9; font-weight: bold;">Client Address</td>
+          <td style="padding: 8px; border: 1px solid #e0e0e0;">${address}</td>
+        </tr>
+      </table>
+      <p>To view more details, please log in to your dashboard.</p>
+      <p>Best regards,</p>
+      <p><strong>Opaleka Team</strong></p>
+    </div>
+  `,
+};
 
     await transporter.sendMail(mailOptions);
     console.log("Email sent to:", provider.email);
@@ -172,40 +176,48 @@ exports.bookService = async (req, res) => {
     });
   }
 };
-
 exports.getBookingsForProvider = async (req, res) => {
   try {
-    const { status } = req.params; // Extract the status from the request parameters
-    const providerId = req.user.id; // Get the provider's ID from the auth middleware
+    const { status } = req.params; // Extract the status from request parameters
+    const providerId = req.user.id; // Get provider ID from authentication
 
-    // Fetch bookings with the given providerId and status
-    const bookings = await Booking.find({
+    // Construct query
+    const query = {
       providerId,
       status: status.toLowerCase(),
-    }).populate("userId", "name email profileImage phone address"); // Populate user details, including phone
+    };
 
-    const mappedBookings = bookings.map((booking) => {
-      console.log("Booking Profile Image:", booking.userId.profileImage);
-      return {
-        id: booking._id,
-        serviceName: booking.serviceName,
-        clientName: booking.userId.name,
-        email: booking.userId.email,
-        phone: booking.userId.phone,
-        date: booking.date,
-        time: booking.time,
-        address: booking.address, // Include address in response
-        profileImage: booking.userId.profileImage,
-      };
-    });
-    
+    // ✅ If fetching 'completed' or 'rejected' bookings, exclude those deleted by the provider
+    if (["completed", "rejected"].includes(status.toLowerCase())) {
+      query.deletedByUsers = { $ne: providerId }; // Exclude deleted records for this provider
+    }
+
+    // Fetch bookings
+    const bookings = await Booking.find(query)
+      .populate("userId", "name email profileImage phone address");
+
+    // Format the response
+    const mappedBookings = bookings.map((booking) => ({
+      id: booking._id,
+      serviceName: booking.serviceName,
+      clientName: booking.userId.name,
+      email: booking.userId.email,
+      phone: booking.userId.phone,
+      date: booking.date,
+      time: booking.time,
+      address: booking.address,
+      profileImage: booking.userId.profileImage,
+      createdAt: booking.createdAt,
+    }));
+
     return res.status(200).json({
       success: true,
       message: `${status} bookings fetched successfully.`,
       bookings: mappedBookings,
     });
+
   } catch (error) {
-   
+    console.error("Error fetching bookings:", error);
     return res.status(500).json({
       success: false,
       message: "An error occurred while fetching bookings.",
@@ -214,7 +226,6 @@ exports.getBookingsForProvider = async (req, res) => {
 };
 
 
-const moment = require("moment");
 
 exports.acceptBooking = async (req, res) => {
   try {
@@ -373,10 +384,10 @@ exports.rejectBooking = async (req, res) => {
     });
   }
 };
-
 exports.deleteRejectedRecord = async (req, res) => {
   const { bookingId } = req.params;
-  console.log(`Attempting to delete rejected record with ID: ${bookingId}`);
+  const providerId = req.user.id; // Ensure the provider ID is obtained from the auth middleware
+  console.log(`Attempting to soft delete rejected record with ID: ${bookingId} by provider ${providerId}`);
 
   try {
     // ✅ Check if the booking exists
@@ -399,17 +410,22 @@ exports.deleteRejectedRecord = async (req, res) => {
       });
     }
 
-    // ✅ Proceed with deletion
-    await Booking.findByIdAndDelete(bookingId);
+    // ✅ Soft delete by adding provider ID to `deletedByUsers`
+    booking.deletedByUsers = booking.deletedByUsers || [];
     
-    console.log(`Rejected booking with ID ${bookingId} deleted successfully.`);
+    if (!booking.deletedByUsers.includes(providerId)) {
+      booking.deletedByUsers.push(providerId);
+      await booking.save();
+    }
+
+    console.log(`Rejected booking with ID ${bookingId} soft deleted successfully for provider ${providerId}.`);
     return res.status(200).json({
       success: true,
-      message: 'Rejected booking deleted successfully.',
+      message: 'Rejected booking removed from your list successfully.',
     });
 
   } catch (error) {
-    console.error(`Error deleting rejected booking ID ${bookingId}:`, error);
+    console.error(`Error soft deleting rejected booking ID ${bookingId}:`, error);
     return res.status(500).json({
       success: false,
       message: 'Internal server error while deleting the rejected booking.',
@@ -510,15 +526,16 @@ exports.completeJob = async (req, res) => {
   }
 };
 
-
 exports.deleteCompletedJob = async (req, res) => {
   const { bookingId } = req.params;
-  console.log(`Attempting to delete completed job with ID: ${bookingId}`);
+  const userId = req.user.id; // Get authenticated user ID
+
+  console.log(`Attempting to delete completed job with ID: ${bookingId} for user: ${userId}`);
 
   try {
     // ✅ Check if the booking exists
     const booking = await Booking.findById(bookingId);
-    
+
     if (!booking) {
       console.error(`Booking with ID ${bookingId} not found.`);
       return res.status(404).json({
@@ -527,7 +544,7 @@ exports.deleteCompletedJob = async (req, res) => {
       });
     }
 
-    // ✅ Ensure the status is 'completed' before deleting
+    // ✅ Ensure the status is 'completed' before soft deleting
     if (booking.status !== 'completed') {
       console.error(`Booking ID ${bookingId} is not marked as completed.`);
       return res.status(400).json({
@@ -536,17 +553,20 @@ exports.deleteCompletedJob = async (req, res) => {
       });
     }
 
-    // ✅ Proceed with deletion
-    await Booking.findByIdAndDelete(bookingId);
-    
-    console.log(`Booking with ID ${bookingId} deleted successfully.`);
+    // ✅ Soft delete by adding user ID to `deletedByUsers`
+    if (!booking.deletedByUsers.includes(userId)) {
+      booking.deletedByUsers.push(userId);
+      await booking.save();
+    }
+
+    console.log(`Booking with ID ${bookingId} soft deleted for user ${userId}.`);
     return res.status(200).json({
       success: true,
-      message: 'Completed job deleted successfully.',
+      message: 'Completed job deleted for this user only.',
     });
 
   } catch (error) {
-    console.error(`Error deleting booking ID ${bookingId}:`, error);
+    console.error(`Error deleting completed booking ID ${bookingId}:`, error);
     return res.status(500).json({
       success: false,
       message: 'Internal server error while deleting the completed job.',
@@ -555,28 +575,29 @@ exports.deleteCompletedJob = async (req, res) => {
   }
 };
 
-
 exports.getAllHistory = async (req, res) => {
   try {
-    const clientId = req.user.id; // Ensure client is authenticated
+    const clientId = req.user.id;
     console.log('Client ID:', clientId);
 
-    const pendingHistory = await Booking.find({ userId: clientId, status: 'pending' })
-    .populate('providerId', 'name profileImage email phone')
-    .select('serviceName providerId date time address') // Include address in response
-    .sort({ createdAt: -1 });
-  
+    const pendingHistory = await Booking.find({
+      userId: clientId,
+      status: 'pending',
+      deletedByUsers: { $ne: clientId }, // Exclude deleted bookings for this user
+    })
+      .populate('providerId', 'name profileImage email phone')
+      .select('serviceName providerId date time address createdAt')
+      .sort({ createdAt: -1 });
 
-    console.log('Pending History Found:', pendingHistory);
+    console.log('🔥 Pending Bookings Found:', JSON.stringify(pendingHistory, null, 2));
 
-    if (!pendingHistory.length) {
-      return res.status(404).json({ success: false, message: 'No pending history found.' });
-    }
+    return res.status(200).json({ success: true, data: pendingHistory });
 
-    res.status(200).json({ success: true, data: pendingHistory });
   } catch (error) {
     console.error('Error fetching pending history:', error);
-    res.status(500).json({ success: false, message: 'Internal server error.' });
+    if (!res.headersSent) {
+      return res.status(500).json({ success: false, message: 'Internal server error.' });
+    }
   }
 };
 
@@ -585,15 +606,16 @@ exports.getCompletedHistory = async (req, res) => {
     const clientId = req.user.id;
     console.log('Request received for completed history. User ID:', clientId);
 
-    // Fetch completed bookings and populate provider details
-    const completedBookings = await Booking.find({ userId: clientId, status: 'completed' })
-      .populate('providerId', 'name profileImage email phone')
+    const completedBookings = await Booking.find({
+      userId: clientId,
+      status: 'completed',
+      deletedByUsers: { $ne: clientId }, // Exclude deleted bookings for this user
+    })
+      .populate('providerId', 'name profileImage email phone createdAt')
       .sort({ createdAt: -1 });
 
-    console.log('Completed Bookings:', completedBookings);
-
-    if (!completedBookings || completedBookings.length === 0) {
-      return res.status(404).json({ success: false, message: 'No completed history found.' });
+    if (!completedBookings.length) {
+      return res.status(200).json({ success: true, data: [] }); // Return empty instead of 404
     }
 
     res.status(200).json({ success: true, data: completedBookings });
@@ -604,14 +626,20 @@ exports.getCompletedHistory = async (req, res) => {
 };
 
 
-// Fetch rejected bookings for the logged-in client
 exports.getRejectedHistory = async (req, res) => {
   try {
     const clientId = req.user.id;
-    const rejectedHistory = await Booking.find({ userId: clientId, status: 'rejected' }).sort({ createdAt: -1 });
+
+    const rejectedHistory = await Booking.find({
+      userId: clientId,
+      status: 'rejected',
+      deletedByUsers: { $ne: clientId }, // Exclude deleted bookings for this user
+    })
+      .populate('providerId', 'name profileImage email phone createdAt')
+      .sort({ createdAt: -1 });
 
     if (!rejectedHistory.length) {
-      return res.status(404).json({ success: false, message: 'No rejected history found.' });
+      return res.status(200).json({ success: true, data: [] });
     }
 
     res.status(200).json({ success: true, data: rejectedHistory });
@@ -620,7 +648,6 @@ exports.getRejectedHistory = async (req, res) => {
     res.status(500).json({ success: false, message: 'Internal server error.' });
   }
 };
-
 
 exports.deletePendingRecord = async (req, res) => {
   const { bookingId } = req.params; // Extract the booking ID from the request parameters
@@ -661,14 +688,50 @@ exports.deletePendingRecord = async (req, res) => {
 };
 
 
+exports.cancelBooking = async (req, res) => {
+  const { bookingId } = req.params; // Extract the booking ID from the request parameters
+  const clientId = req.user.id; // Get the client's ID from the authentication middleware
 
-// Controller to delete a completed record
-exports.deleteCompletedRecord = async (req, res) => {
-  const { bookingId } = req.params; // Extract booking ID from the request parameters
+  console.log(`Cancelling booking with ID: ${bookingId} by user: ${clientId}`);
 
   try {
-    // Find and delete the booking with status 'completed' and matching ID
-    const booking = await Booking.findOneAndDelete({ _id: bookingId, status: 'completed' });
+    // Find the booking and ensure it's in "pending" status before marking as "rejected"
+    const booking = await Booking.findOneAndUpdate(
+      { _id: bookingId, userId: clientId, status: 'pending' },
+      { status: 'rejected' },
+      { new: true }
+    );
+
+    if (!booking) {
+      console.log(`Booking ID ${bookingId} not found or already processed.`);
+      return res.status(404).json({
+        success: false,
+        message: 'Pending booking not found or already cancelled.',
+      });
+    }
+
+    console.log(`Booking ID ${bookingId} successfully marked as rejected.`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Booking successfully cancelled.',
+      booking,
+    });
+
+  } catch (error) {
+    console.error('Error cancelling booking:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error.',
+    });
+  }
+};
+exports.deleteCompletedRecord = async (req, res) => {
+  const { bookingId } = req.params;
+  const userId = req.user.id; // Get authenticated user ID
+
+  try {
+    const booking = await Booking.findOne({ _id: bookingId, status: 'completed' });
 
     if (!booking) {
       return res.status(404).json({
@@ -677,15 +740,54 @@ exports.deleteCompletedRecord = async (req, res) => {
       });
     }
 
+    // Add user ID to `deletedByUsers` array instead of hard deleting
+    if (!booking.deletedByUsers.includes(userId)) {
+      booking.deletedByUsers.push(userId);
+      await booking.save();
+    }
+
     return res.status(200).json({
       success: true,
-      message: 'Completed booking deleted successfully.',
+      message: 'Booking deleted for this user only.',
     });
   } catch (error) {
     console.error('Error deleting completed booking:', error);
     return res.status(500).json({
       success: false,
       message: 'An error occurred while deleting the completed booking.',
+    });
+  }
+};
+
+exports.deleteRejectedHistory = async (req, res) => {
+  const { bookingId } = req.params;
+  const userId = req.user.id; // Authenticated user ID
+
+  try {
+    const booking = await Booking.findOne({ _id: bookingId, status: 'rejected' });
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Rejected booking not found or already deleted.',
+      });
+    }
+
+    // Soft delete by adding user ID to `deletedByUsers` array
+    if (!booking.deletedByUsers.includes(userId)) {
+      booking.deletedByUsers.push(userId);
+      await booking.save();
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Rejected booking deleted for this user only.',
+    });
+  } catch (error) {
+    console.error('Error deleting rejected booking:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'An error occurred while deleting the rejected booking.',
     });
   }
 };

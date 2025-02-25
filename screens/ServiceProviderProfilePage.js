@@ -10,6 +10,7 @@ import {
   StatusBar,
   StyleSheet,
   ActivityIndicator,
+  Platform,
   Alert,
 } from "react-native";
 import Carousel from "react-native-reanimated-carousel";
@@ -190,7 +191,7 @@ const ROUTES = [
                   })
                 }
               >
-                <Text style={styles.bookServiceText}>Book</Text>
+                <Text style={styles.bookServiceText}>Schedule</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -300,9 +301,20 @@ const ROUTES = [
           <Text style={styles.detailText}>{provider?.address || "No address provided"}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Phone</Text>
-          <Text style={styles.detailText}>{provider?.phone || "No phone provided"}</Text>
-        </View>
+  <Text style={styles.detailLabel}>Phone</Text>
+  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+    <Text style={styles.detailText}>{provider?.phone || "No phone provided"}</Text>
+    {provider?.phone && (
+      <TouchableOpacity
+        style={styles.callButton}
+        onPress={() => Linking.openURL(`tel:${provider.phone}`)}
+      >
+        <Text style={styles.callButtonText}>Call Now</Text>
+      </TouchableOpacity>
+    )}
+  </View>
+</View>
+
         
         <View style={styles.socialLinksContainer}>
           {provider?.socialLinks && typeof provider.socialLinks === 'object' ?
@@ -439,17 +451,39 @@ const ROUTES = [
       </View>
 
       <View style={styles.businessInfo}>
-        <View style={styles.titleRow}>
-          <Text style={styles.businessName}>{provider?.name || "Service Provider"}</Text>
-          {provider?.verified && (
-            <Image
-              source={{
-                uri: "https://www.pngmart.com/files/12/Instagram-Verified-Badge-PNG-Image.png",
-              }}
-              style={styles.verifiedBadge}
-            />
-          )}
-        </View>
+      <View style={styles.titleRow}>
+  <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+    <Text style={styles.businessName} numberOfLines={1}>
+      {provider?.name || "Service Provider"}
+    </Text>
+    {provider?.verified && (
+      <Image
+        source={{
+          uri: "https://www.pngmart.com/files/12/Instagram-Verified-Badge-PNG-Image.png",
+        }}
+        style={styles.verifiedBadge}
+      />
+    )}
+  </View>
+  
+  {provider?.phone && (
+  <TouchableOpacity
+  style={styles.callButton}
+  onPress={() => Linking.openURL(`tel:${provider.phone}`)}
+  activeOpacity={0.7} // Adds smooth press effect
+>
+  <View style={styles.callButtonInner}>
+    <Image
+      source={{ uri: "https://cdn-icons-png.flaticon.com/512/724/724664.png" }}
+      style={styles.callIcon}
+    />
+    <Text style={styles.callButtonText}>Call Now</Text>
+  </View>
+</TouchableOpacity>
+
+  )}
+</View>
+
         <Text style={styles.address}>{provider?.businessName || "Business name not available"}</Text>
       </View>
     <View style={{ flex: 1, backgroundColor: "#F8F9FA" }}> 
@@ -520,7 +554,7 @@ const ROUTES = [
           })
         }
       >
-        <Text style={styles.bookButtonText}>Book Appointment</Text>
+        <Text style={styles.bookButtonText}>Schedule Appointment</Text>
       </TouchableOpacity>
     </View>
   );
@@ -538,8 +572,11 @@ const styles = StyleSheet.create({
   },
   headerOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(26, 35, 126, 0.3)',
+    backgroundColor: 'transparent', // Fully removes any overlay
   },
+  
+  
+  
   carouselImage: {
     width: SCREEN_WIDTH,
     height: 300,
@@ -875,6 +912,83 @@ const styles = StyleSheet.create({
   },
   tabContent: {
     flex: 1,
+  },
+
+  callButton: {
+    backgroundColor: '#1a237e',
+    borderRadius: 25,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginLeft: 12,
+    // Gradient-like effect with border
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    // Platform-specific shadows
+    ...Platform.select({
+      ios: {
+        shadowColor: '#1a237e',
+        shadowOffset: {
+          width: 0,
+          height: 4,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 4.5,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+    // Add subtle inner shadow effect
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  callButtonInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Subtle inner glow effect
+    ...Platform.select({
+      ios: {
+        shadowColor: '#ffffff',
+        shadowOffset: {
+          width: 0,
+          height: 1,
+        },
+        shadowOpacity: 0.2,
+        shadowRadius: 1,
+      },
+    }),
+  },
+  callIcon: {
+    width: 20,
+    height: 20,
+    tintColor: '#ffffff',
+    marginRight: 8,
+    opacity: 0.9, // Subtle transparency for softer look
+  },
+  callButtonText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    // Text shadow for better contrast
+    ...Platform.select({
+      ios: {
+        textShadowColor: 'rgba(0,0,0,0.2)',
+        textShadowOffset: {
+          width: 0,
+          height: 1,
+        },
+        textShadowRadius: 2,
+      },
+    }),
+  },
+  // Optional: Add a disabled state
+  callButtonDisabled: {
+    backgroundColor: '#9fa8da', // Lighter shade of indigo
+    shadowOpacity: 0,
+    elevation: 0,
   },
 });
 

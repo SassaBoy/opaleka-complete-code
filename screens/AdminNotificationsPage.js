@@ -67,7 +67,7 @@ const AdminNotificationsPage = () => {
       const response = await axios.get(
         "https://service-booking-backend-eb9i.onrender.com/api/auth/pending-providers"
       );
-
+      
       if (response.data.success) {
         setPendingProviders(response.data.providers);
       } else {
@@ -95,7 +95,7 @@ const AdminNotificationsPage = () => {
     try {
       setLoadingProviders(true);
       const response = await axios.get(
-        `http://192.168.8.138:5001/api/auth/search-pending-providers?query=${query}`
+        `https://service-booking-backend-eb9i.onrender.com/api/auth/search-pending-providers?query=${query}`
       );
       if (response.data.success) {
         setPendingProviders(response.data.providers);
@@ -133,7 +133,7 @@ const AdminNotificationsPage = () => {
     try {
       setLoading(true);
       const response = await axios.get(
-        `http://192.168.8.138:5001/api/auth/search?query=${query}`
+        `https://service-booking-backend-eb9i.onrender.com/api/auth/search?query=${query}`
       );
       setUsers(response.data.users || []);
     } catch (error) {
@@ -168,7 +168,7 @@ const AdminNotificationsPage = () => {
 
     try {
       setLoading(true);
-      await axios.post("http://192.168.8.138:5001/api/auth/send-notification", {
+      await axios.post("https://service-booking-backend-eb9i.onrender.com/api/auth/send-notification", {
         title,
         message,
         audience,
@@ -201,7 +201,7 @@ const AdminNotificationsPage = () => {
   const handleVerification = async (status) => {
     try {
       setLoading(true);
-      await axios.post("http://192.168.8.138:5001/api/auth/verify-documents", {
+      await axios.post("https://service-booking-backend-eb9i.onrender.com/api/auth/verify-documents", {
         email: selectedProvider.email,
         verificationStatus: status,
         adminNotes: verificationNote,

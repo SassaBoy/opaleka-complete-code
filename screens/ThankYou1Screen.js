@@ -42,7 +42,7 @@ const ThankYou1Screen = ({ navigation }) => {
     // Redirect to Home after 10 seconds
     const timer = setTimeout(() => {
       navigation.navigate("Home");
-    }, 10000);
+    }, 5000);
 
     return () => clearTimeout(timer); // Cleanup on unmount
   }, [navigation]);

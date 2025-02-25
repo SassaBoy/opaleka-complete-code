@@ -195,15 +195,7 @@ const LandingScreen = ({ navigation }) => {
           OPALEKA
         </Animated.Text>
         
-        {/* Tagline */}
-        <Animated.Text 
-          style={[
-            styles.tagline,
-            { opacity: taglineFade }
-          ]}
-        >
-          Elevate Your Experience
-        </Animated.Text>
+   
       </View>
     </View>
   );

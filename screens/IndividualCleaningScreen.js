@@ -64,11 +64,15 @@ const IndividualCleaningScreen = ({ navigation, route }) => {
       // Retrieve `authToken` from AsyncStorage
       const token = await AsyncStorage.getItem("authToken");
   
-      // Ensure the token exists
       if (!token) {
-        Alert.alert("Authentication Error", "You need to log in to book a service.");
-        return navigation.navigate("Login");
+        Alert.alert("Login First", "You need to log in to book a service.");
+        return navigation.navigate("Login", {
+          role: "Client", // Ensures role is always Client
+          redirectTo: "BookingPage",
+          params: { ...route.params }
+        });               
       }
+      
   
       // Fetch user details from the API
       let userId;

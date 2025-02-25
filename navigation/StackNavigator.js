@@ -20,7 +20,7 @@ import SupportScreen from "../screens/SupportScreen";
 import BenefitsScreen from "../screens/BenefitsScreen";
 import FAQScreen from "../screens/FAQScreen";
 import TermsScreen from "../screens/TermsScreen";
-import ServicesPage from "../screens/ServicesPage";
+import ServicesPage from "../screens/ServicesPage"; // ✅ Now included
 import ServiceProvidersPage from "../screens/ServiceProvidersPage";
 import LoadingScreen from "../screens/LoadingScreen";
 import ServiceProviderProfilePage from "../screens/ServiceProviderProfilePage";
@@ -39,6 +39,7 @@ import RateServiceProviderPage from "../screens/RateServiceProviderPage";
 import ReservationDetailsPage from "../screens/ReservationDetailsPage";
 import SpeechInteractionScreen from "../screens/SpeechInteractionScreen";
 import ThankYou1Screen from "../screens/ThankYou1Screen";
+import PaymentReminder from "../screens/PaymentReminder";
 
 const Stack = createStackNavigator();
 
@@ -48,49 +49,50 @@ const StackNavigator = () => {
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
-          gestureEnabled: true, // Enable swipe gestures
-          gestureDirection: "horizontal", // Allows swiping back to previous screen
-          animationEnabled: true, // Smooth transitions
-          cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS, // Smooth iOS-like animation
+          gestureEnabled: true,
+          gestureDirection: "horizontal",
+          animationEnabled: true,
+          cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
         }}
-        
       >
-        
-       <Stack.Screen name="Landing" component={LandingScreen} options={{ animationEnabled: false }} />
+        <Stack.Screen name="Landing" component={LandingScreen} options={{ animationEnabled: false }} />
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="AdminNotificationsPage" component={AdminNotificationsPage} />
-        <Stack.Screen name="RateServiceProviderPage" component={RateServiceProviderPage} />
-        <Stack.Screen name="ReservationDetailsPage" component={ReservationDetailsPage} />
         <Stack.Screen name="NotificationsPage" component={NotificationsPage} />
+        <Stack.Screen name="NotificationDetail" component={NotificationDetailScreen} />
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="RequestPassword" component={RequestPasswordResetScreen} />
-        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+        <Stack.Screen name="Signup" component={SignupScreen} options={{ gestureEnabled: false }} />
+        <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} options={{ gestureEnabled: false }} />
+        <Stack.Screen name="UploadDocuments" component={UploadDocumentsScreen} options={{ gestureEnabled: false }} />
+        <Stack.Screen name="RequestPassword" component={RequestPasswordResetScreen} options={{ gestureEnabled: false }} />
+        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ gestureEnabled: false }} />
         <Stack.Screen name="ServicesPage" component={ServicesPage} />
         <Stack.Screen name="ServiceProvidersPage" component={ServiceProvidersPage} />
+        <Stack.Screen name="ServiceProviderProfilePage" component={ServiceProviderProfilePage} />
+        <Stack.Screen name="BookingPage" component={IndividualCleaningScreen} />
+        <Stack.Screen name="RateServiceProviderPage" component={RateServiceProviderPage} options={{ gestureEnabled: false }} />
+        <Stack.Screen name="ReservationDetailsPage" component={ReservationDetailsPage} options={{ gestureEnabled: false }} />
+        <Stack.Screen name="PaymentMethodScreen" component={PaymentMethodScreen} options={{ gestureEnabled: false }} />
+        <Stack.Screen name="CardPayment" component={CardPaymentScreen} options={{ gestureEnabled: false }} />
+        <Stack.Screen name="BankTransferScreen" component={BankTransferScreen} options={{ gestureEnabled: false }} />
+        <Stack.Screen name="MobilePaymentScreen" component={MobilePaymentScreen} options={{ gestureEnabled: false }} />
+        <Stack.Screen name="PaymentReminder" component={PaymentReminder} options={{ gestureEnabled: false }} />
+        <Stack.Screen name="ThankYou" component={ThankYouScreen} options={{ gestureEnabled: false }} />
+        <Stack.Screen name="ThankYou1" component={ThankYou1Screen} options={{ gestureEnabled: false }} />
         <Stack.Screen name="UserAccount" component={UserAccount} />
-        <Stack.Screen name="Signup" component={SignupScreen} />
-        <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
-        <Stack.Screen name="UploadDocuments" component={UploadDocumentsScreen} />
-        <Stack.Screen name="ThankYou" component={ThankYouScreen} />
+        <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="History" component={HistoryScreen} />
         <Stack.Screen name="Support" component={SupportScreen} />
         <Stack.Screen name="Benefits" component={BenefitsScreen} />
         <Stack.Screen name="FAQScreen" component={FAQScreen} />
         <Stack.Screen name="Terms" component={TermsScreen} />
-        <Stack.Screen name="Settings" component={SettingsScreen} />
-        <Stack.Screen name="LoadingScreen" component={LoadingScreen} />
-        <Stack.Screen name="ServiceProviderProfilePage" component={ServiceProviderProfilePage} />
-        <Stack.Screen name="BookingPage" component={IndividualCleaningScreen} />
-        <Stack.Screen name="NotificationDetail" component={NotificationDetailScreen} />
         <Stack.Screen name="Privacy" component={PrivacyPolicyScreen} />
-        <Stack.Screen name="PaymentMethodScreen" component={PaymentMethodScreen} />
-        <Stack.Screen name="CardPayment" component={CardPaymentScreen} />
-        <Stack.Screen name="BankTransferScreen" component={BankTransferScreen} />
-        <Stack.Screen name="MobilePaymentScreen" component={MobilePaymentScreen} />
         <Stack.Screen name="ViewBookingsPage" component={ViewBookingsPage} />
         <Stack.Screen name="ReviewsPage" component={ReviewsPage} />
-        <Stack.Screen name="ThankYou1" component={ThankYou1Screen} />
+        <Stack.Screen name="EnableFingerprintScreen" component={EnableFingerprintScreen} />
+        <Stack.Screen name="SpeechInteractionScreen" component={SpeechInteractionScreen} />
+        <Stack.Screen name="LoadingScreen" component={LoadingScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

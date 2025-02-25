@@ -34,13 +34,15 @@ const LoginScreen = ({ route, navigation }) => {
   
     if (!email) {
       setError((prev) => ({ ...prev, email: "Email is required." }));
+      setLoading(false);
       return;
     }
     if (!password) {
       setError((prev) => ({ ...prev, password: "Password is required." }));
+      setLoading(false);
       return;
     }
-  
+    
 
   
     try {
@@ -55,18 +57,18 @@ const LoginScreen = ({ route, navigation }) => {
       setUserDetails(user); // Add this
       // Store token in AsyncStorage
       await AsyncStorage.setItem("authToken", token);
-  
+      await AsyncStorage.setItem("userId", user.id);
   
       // Navigate to the appropriate page
-      if (redirectTo) {
+      if (redirectTo && redirectTo !== "Home") {
         navigation.reset({
           index: 0,
-          routes: [{ name: redirectTo, params: redirectParams }],
+          routes: [{ name: redirectTo, params: redirectParams }]
         });
       } else {
-     // In your login success handler
-      navigation.navigate("Home", { refresh: Date.now() });
+        navigation.navigate("Home", { refresh: Date.now() });
       }
+      
 
     } catch (error) {
       // Log technical details in the terminal

@@ -15,6 +15,9 @@ const userSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   resetPasswordOTP: { type: String },
   resetPasswordExpires: { type: Date },
+  verificationOTP: { type: String },
+  verificationExpires: { type: Date },
+  isVerified: { type: Boolean, default: false },
 });
 
 

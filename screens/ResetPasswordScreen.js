@@ -19,7 +19,7 @@ const ResetPasswordScreen = ({ route, navigation }) => {
   const [newPassword, setNewPassword] = useState("");
   const [error, setError] = useState({});
   const [loading, setLoading] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(otpExpiresIn || 600);
+  const [timeLeft, setTimeLeft] = useState(60);  // ✅ Change from 600 to 60 seconds
   const [resending, setResending] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -109,8 +109,8 @@ const ResetPasswordScreen = ({ route, navigation }) => {
   const handleResendOTP = async () => {
     setResending(true);
     try {
-      const response = await axios.post("http://192.168.8.138:5001/api/auth/forgot-password", { email });
-      setTimeLeft(600);
+      const response = await axios.post("https://service-booking-backend-eb9i.onrender.com/api/auth/forgot-password", { email });
+      setTimeLeft(60); // ✅ Reset OTP timer to 60 seconds
       Toast.show({
         type: "success",
         text1: "Success",
@@ -127,7 +127,7 @@ const ResetPasswordScreen = ({ route, navigation }) => {
       setResending(false);
     }
   };
-
+  
   return (
     <SafeAreaView style={styles.container}>
       <Toast />
@@ -138,22 +138,23 @@ const ResetPasswordScreen = ({ route, navigation }) => {
         </View>
 
         <View style={styles.timerContainer}>
-          {timeLeft > 0 ? (
-            <Text style={styles.timer}>
-              <Icon name="clock-outline" size={16} color="#4A5568" /> {' '}
-              Expires in: <Text style={styles.timerHighlight}>{formatTime(timeLeft)}</Text>
-            </Text>
-          ) : (
-            <TouchableOpacity
-              style={[styles.resendButton, resending && styles.disabledButton]}
-              onPress={handleResendOTP}
-              disabled={resending}
-            >
-              <Icon name="email-sync" size={18} color="#1a237e" />
-              <Text style={styles.resendButtonText}>{resending ? " Resending..." : " Resend OTP"}</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+  {timeLeft > 0 ? (
+    <Text style={styles.timer}>
+      <Icon name="clock-outline" size={16} color="#4A5568" /> {' '}
+      Expires in: <Text style={styles.timerHighlight}>{formatTime(timeLeft)}</Text>
+    </Text>
+  ) : (
+    <TouchableOpacity
+      style={[styles.resendButton, resending && styles.disabledButton]}
+      onPress={handleResendOTP}
+      disabled={resending}
+    >
+      <Icon name="email-sync" size={18} color="#1a237e" />
+      <Text style={styles.resendButtonText}>{resending ? " Resending..." : " Resend OTP"}</Text>
+    </TouchableOpacity>
+  )}
+</View>
+
 
         <View style={styles.formContainer}>
           <View style={styles.inputContainer}>

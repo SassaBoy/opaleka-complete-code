@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -36,6 +36,7 @@ const HistoryPage = ({ navigation }) => {
     };
     
     await fetchHistoryData(statusMap[selectedTab]);
+setHistory((prev) => prev.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
     setRefreshing(false);
   };
   
@@ -45,12 +46,23 @@ const HistoryPage = ({ navigation }) => {
   }, []);
 
   const fetchHistoryData = async (status = 'all') => {
-    setLoading(true);
+    const cacheKey = `history_${status}`;
+  
     try {
+      setLoading(true);
+  
+      // Load cached data first
+      const cachedData = await AsyncStorage.getItem(cacheKey);
+      if (cachedData) {
+        setHistory(JSON.parse(cachedData));
+        setLoading(false);
+      }
+  
+      // Fetch fresh data
       const token = await AsyncStorage.getItem('authToken');
       const endpoint = {
-        all: 'https://service-booking-backend-eb9i.onrender.com/api/book/history/all',
-        completed: 'https://service-booking-backend-eb9i.onrender.com/api/book/history/completed',
+        all: 'https://service-booking-backend-eb9i.onrender.com/api/book/history/all', 
+        completed: 'https://service-booking-backend-eb9i.onrender.com/api/book/history/completed', 
         rejected: 'https://service-booking-backend-eb9i.onrender.com/api/book/history/rejected',
       }[status];
   
@@ -59,55 +71,151 @@ const HistoryPage = ({ navigation }) => {
       });
   
       if (response.data.success) {
-        // Add console.log to check raw data
-        console.log('Raw Response Data:', response.data.data);
-  
         const mappedData = response.data.data.map((booking) => ({
-          id: booking._id, // Use _id instead of id
+          id: booking._id,
           serviceName: booking.serviceName,
           date: booking.date,
           time: booking.time,
-          price: `$${booking.price}`,
-          status: booking.status,
-          providerId: {
-            name: booking.providerId?.name || 'Unknown Provider',
-            email: booking.providerId?.email,
-            phone: booking.providerId?.phone,
-            profileImage: booking.providerId?.profileImage
-          }
+          price: `$${booking.price || '0.00'}`,
+          status: booking.status || 'pending',
+          createdAt: booking.createdAt || new Date().toISOString(),
+          providerId: booking.providerId
+            ? {
+                name: booking.providerId.name || 'Unknown Provider',
+                email: booking.providerId.email || 'Not Provided',
+                phone: booking.providerId.phone || 'Not Provided',
+                profileImage: booking.providerId.profileImage || null,
+              }
+            : {
+                name: 'Unknown Provider',
+                email: 'Not Provided',
+                phone: 'Not Provided',
+                profileImage: null,
+              },
         }));
   
-        // Add console.log to check mapped data
-        console.log('Mapped Data:', mappedData);
+        const sortedData = mappedData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   
-        setHistory(mappedData);
-      } else {
-        console.log('No success in response');
-        setHistory([]);
+        setHistory(sortedData);
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(sortedData));
       }
     } catch (error) {
-      console.error('Full Error:', error);
-      console.error('Error Response:', error.response?.data);
-      setHistory([]);
+      console.error('Error fetching history:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleTabChange = (tab) => {
-    setSelectedTab(tab);
-    const statusMap = {
-      Recent: 'all', // Maps to "All" backend route
-      Completed: 'completed',
-      Cancelled: 'rejected', // Maps to "Rejected" backend route
-    };
-    fetchHistoryData(statusMap[tab]);
+  
+  // Delete this duplicate useEffect
+useEffect(() => {
+  const loadCachedData = async () => {
+    const cachedData = await AsyncStorage.getItem('history_all');
+    if (cachedData) {
+      setHistory(JSON.parse(cachedData));
+    }
+    fetchHistoryData('all');
+  };
+
+  loadCachedData();
+}, []);
+  
+const handleTabChange = (tab) => {
+  setSelectedTab(tab);
+  
+  const statusMap = {
+    Recent: 'all',
+    Completed: 'completed',
+    Cancelled: 'rejected',
   };
   
+  fetchHistoryData(statusMap[tab]);
+};
+const handleDeleteRejectedRecord = async (id) => {
+  Alert.alert(
+    'Delete Record',
+    'Are you sure you want to delete this rejected service record? This will only remove it from your history.',
+    [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const token = await AsyncStorage.getItem('authToken');
+            const response = await axios.put(
+              `https://service-booking-backend-eb9i.onrender.com/api/book/rejected/${id}`,
+              {},
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (response.data.success) {
+              // Update UI immediately (only for this user)
+              const updatedHistory = history.filter(service => service.id !== id);
+              setHistory(updatedHistory);
+
+              // Update local cache
+              await AsyncStorage.setItem('history_all', JSON.stringify(updatedHistory));
+              await AsyncStorage.setItem('history_rejected', JSON.stringify(
+                updatedHistory.filter(item => item.status?.toLowerCase().trim().includes('rejected'))
+              ));
+
+              Alert.alert('Success', 'Rejected record removed from your history.');
+            } else {
+              Alert.alert('Error', response.data.message || 'Failed to remove rejected record.');
+            }
+          } catch (error) {
+            console.error('Error removing rejected record:', error.response?.data || error.message);
+            Alert.alert('Error', 'An error occurred while removing the rejected record.');
+          }
+        },
+      },
+    ]
+  );
+};
+
+
+  const handleCancelBooking = async (id) => {
+    Alert.alert(
+      'Cancel Booking',
+      'Are you sure you want to cancel this booking?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const token = await AsyncStorage.getItem('authToken');
+              const response = await axios.put(
+                `https://service-booking-backend-eb9i.onrender.com/api/book/cancel/${id}`, 
+                {},
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
+  
+              if (response.data.success) {
+                setHistory((prev) =>
+                  prev.map((service) =>
+                    service.id === id ? { ...service, status: 'rejected' } : service
+                  )
+                );
+                Alert.alert('Success', 'Your booking has been cancelled.');
+              } else {
+                Alert.alert('Error', response.data.message || 'Failed to cancel booking.');
+              }
+            } catch (error) {
+              console.error('Error cancelling booking:', error.response?.data || error.message);
+              Alert.alert('Error', 'An error occurred while cancelling the booking.');
+            }
+          },
+        },
+      ]
+    );
+  };
   const handleDeleteRecord = async (id) => {
     Alert.alert(
       'Delete Record',
-      'Are you sure you want to delete this completed service record?',
+      'Are you sure you want to delete this completed service record? This will only remove it from your history.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -116,30 +224,36 @@ const HistoryPage = ({ navigation }) => {
           onPress: async () => {
             try {
               const token = await AsyncStorage.getItem('authToken');
-              const response = await axios.delete(
+              const response = await axios.put(
                 `https://service-booking-backend-eb9i.onrender.com/api/book/completed/${id}`,
+                {},
                 { headers: { Authorization: `Bearer ${token}` } }
               );
   
               if (response.data.success) {
-                setHistory((prev) => prev.filter((service) => service.id !== id));
-                Alert.alert('Success', 'Completed record deleted successfully.');
+                // Remove the record from UI only for this user
+                const updatedHistory = history.filter(service => service.id !== id);
+                setHistory(updatedHistory);
+  
+                // Update cache to reflect soft deletion
+                await AsyncStorage.setItem('history_all', JSON.stringify(updatedHistory));
+                await AsyncStorage.setItem('history_completed', JSON.stringify(
+                  updatedHistory.filter(item => item.status?.toLowerCase().trim().includes('completed'))
+                ));
+  
+                Alert.alert('Success', 'Completed record removed from your history.');
               } else {
-                Alert.alert('Error', response.data.message || 'Failed to delete the record.');
+                Alert.alert('Error', response.data.message || 'Failed to remove record.');
               }
             } catch (error) {
-              console.error('Error deleting completed record:', error.response?.data || error.message);
-              Alert.alert(
-                'Error',
-                error.response?.data?.message || 'An error occurred while deleting the record.'
-              );
+              console.error('Error removing record:', error.response?.data || error.message);
+              Alert.alert('Error', 'An error occurred while removing the record.');
             }
           },
         },
       ]
     );
   };
-  
   
 
   const getStatusColor = (status) => {
@@ -176,7 +290,8 @@ const HistoryPage = ({ navigation }) => {
     defaultSource={require('../assets/default-profile.png')}
   />
   <View style={styles.headerInfo}>
-    <Text style={styles.serviceText}>{item.providerId?.name || 'Unknown Provider'}</Text>
+  <Text style={styles.serviceText}>{item?.providerId?.name ?? 'Unknown Provider'}</Text>
+
     <Text style={styles.providerName}>{item.serviceName || 'Unknown Service'}</Text>
   </View>
   <MaterialIcons name="chevron-right" size={24} color="#1a237e" />
@@ -206,115 +321,120 @@ const HistoryPage = ({ navigation }) => {
 
 
         <View style={styles.actionButtonsContainer}>
-        <TouchableOpacity 
-  style={styles.deleteButton} 
-  onPress={() => handleDeleteRecord(item.id)}
->
-  <MaterialIcons name="delete" size={20} color="#ffffff" />
-  <Text style={styles.deleteButtonText}>Delete Record</Text>
-</TouchableOpacity>
+        {item.status.toLowerCase() === 'completed' ? (
+  <TouchableOpacity 
+    style={styles.deleteButton} 
+    onPress={() => handleDeleteRecord(item.id)}
+  >
+    <MaterialIcons name="delete" size={20} color="#ffffff" />
+    <Text style={styles.deleteButtonText}>Delete Completed</Text>
+  </TouchableOpacity>
+) : item.status.toLowerCase() === 'rejected' ? (
+  <TouchableOpacity 
+    style={styles.deleteButton} 
+    onPress={() => handleDeleteRejectedRecord(item.id)} // Calls the new function for rejected records
+  >
+    <MaterialIcons name="delete" size={20} color="#ffffff" />
+    <Text style={styles.deleteButtonText}>Delete Rejected</Text>
+  </TouchableOpacity>
+) : null}
+
 
       
-      {selectedTab === 'Recent' && (
-        <TouchableOpacity 
-          style={styles.cancelButton} 
-          onPress={() => {
-            Alert.alert(
-              'Cancel Booking',
-              'Are you sure you want to cancel this booking?',
-              [
-                { text: 'No', style: 'cancel' },
-                { 
-                  text: 'Yes', 
-                  style: 'destructive',
-                  onPress: () => {
-                    Alert.alert('Booking Cancelled', 'Your booking has been cancelled.');
-                  } 
-                }
-              ]
-            );
-          }}
-        >
-          <MaterialIcons name="cancel" size={20} color="#ffffff" />
-          <Text style={styles.cancelButtonText}>Cancel Booking</Text>
-        </TouchableOpacity>
-      )}
-    </View>
+{selectedTab === 'Recent' && (
+  <TouchableOpacity 
+    style={styles.cancelButton} 
+    onPress={() => handleCancelBooking(item.id)} // ✅ Calls only once
+  >
+    <MaterialIcons name="cancel" size={20} color="#ffffff" />
+    <Text style={styles.cancelButtonText}>Cancel Booking</Text>
+  </TouchableOpacity>
+)}
+ </View>
       </View>
     </TouchableOpacity>
   );
   
-  const filteredHistory = history.filter((service) => {
-    // Check if service and service.status exist before comparing
-    if (!service || !service.status) return false;
-  
-    switch (selectedTab) {
-      case 'Recent':
-        return true;
-      case 'Completed':
-        return service.status.toLowerCase() === 'completed';
-      case 'Cancelled':
-        return service.status.toLowerCase() === 'rejected';
-      default:
-        return false;
-    }
-  });
-  
+  console.log("Raw history data:", history); // Add this to debug
+  const filteredHistory = useMemo(() => {
+    return history.filter((service) => {
+      if (!service || !service.status) return false;
+      
+      const status = service.status.toLowerCase().trim();
+      
+      switch (selectedTab) {
+        case 'Recent':
+          return status.includes('pending');
+        case 'Completed':
+          return status.includes('completed');
+        case 'Cancelled':
+          return status.includes('rejected');
+        default:
+          return false;
+      }
+    });
+  }, [history, selectedTab]);
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1a237e" />
-      </View>
-    );
-  }
+{loading && (
+  <View style={styles.loadingContainer}>
+    <ActivityIndicator size="large" color="#1a237e" />
+  </View>
+)}
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <MaterialIcons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Service History</Text>
-        <View style={styles.countBadge}>
-          <Text style={styles.countText}>
-            {filteredHistory.length} services
-          </Text>
-        </View>
+        
+      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <MaterialIcons name="arrow-back" size={24} color="#fff" />
+      </TouchableOpacity>
+      
+      <Text style={styles.headerTitle}>Service History</Text>
+      <View style={styles.countBadge}>
+        <Text style={styles.countText}>
+          {history.length} services
+        </Text>
       </View>
+    </View>
 
-      <View style={styles.tabs}>
-  {['Recent', 'Completed', 'Cancelled'].map((tab) => (
-    <TouchableOpacity
-      key={tab}
-      style={[styles.tab, selectedTab === tab && styles.activeTab]}
-      onPress={() => handleTabChange(tab)}
-    >
-      <Text style={[styles.tabText, selectedTab === tab && styles.activeTabText]}>{tab}</Text>
-    </TouchableOpacity>
-  ))}
-</View>
+    <View style={styles.tabs}>
+      {['Recent', 'Completed', 'Cancelled'].map((tab) => (
+        <TouchableOpacity
+          key={tab}
+          style={[styles.tab, selectedTab === tab && styles.activeTab]}
+          onPress={() => handleTabChange(tab)}
+        >
+          <Text style={[styles.tabText, selectedTab === tab && styles.activeTabText]}>{tab}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
 
 
-<FlatList
+    <FlatList
   data={filteredHistory}
   keyExtractor={(item) => item.id}
   renderItem={renderHistoryItem}
   contentContainerStyle={styles.listContainer}
   refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-ListEmptyComponent={() => (
-  <View style={styles.emptyContainer}>
-    <MaterialIcons name="history" size={64} color="#9e9e9e" />
-    <Text style={styles.emptyText}>
-      {selectedTab === 'Recent' 
-        ? 'No recent services found' 
-        : selectedTab === 'Completed' 
-        ? 'No completed services yet' 
-        : 'No cancelled services found'}
-    </Text>
-  </View>
-)}
+  initialNumToRender={5}
+  maxToRenderPerBatch={10}
+  windowSize={10}
+  removeClippedSubviews={true}
+  ListEmptyComponent={() => (
+    <View style={styles.emptyContainer}>
+      <MaterialIcons name="history" size={64} color="#9e9e9e" />
+      <Text style={styles.emptyText}>
+        {selectedTab === 'Recent' 
+          ? 'No recent services found' 
+          : selectedTab === 'Completed' 
+          ? 'No completed services yet' 
+          : 'No cancelled services found'}
+      </Text>
+    </View>
+  )}
 />
+
+
 
 <Modal visible={detailsVisible} animationType="slide" transparent>
     <View style={styles.modalContainer}>
@@ -331,8 +451,8 @@ ListEmptyComponent={() => (
 
         {/* Provider Name */}
         <Text style={styles.modalTitle}>
-          {selectedService?.providerId?.name || 'Unknown Provider'}
-        </Text>
+  {selectedService?.providerId?.name ?? 'Unknown Provider'}
+</Text>
 
 
      <View style={styles.modalDetailRow}>
@@ -357,8 +477,8 @@ ListEmptyComponent={() => (
 <View style={styles.modalDetailRow}>
   <MaterialIcons name="person" size={20} color="#666" />
   <Text style={styles.modalDetailText}>
-    Email: {selectedService?.providerId?.email || 'Not provided'}
-  </Text>
+  Email: {selectedService?.providerId?.email ?? 'Not Provided'}
+</Text>
 </View>
 <View style={styles.modalDetailRow}>
   <MaterialIcons name="phone" size={20} color="#666" />
@@ -621,57 +741,68 @@ const styles = StyleSheet.create({
 
   actionButtonsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-evenly', // More balanced spacing
     alignItems: 'center',
-    paddingHorizontal: 12,
     paddingVertical: 12,
-    backgroundColor: '#f8f9fa',
+    paddingHorizontal: 12,
+    backgroundColor: '#ffffff',
     borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
+    borderTopColor: '#e0e0e0',
+    borderRadius: 12,
   },
   
   deleteButton: {
-    flex: 1, // Makes buttons take equal space inside the row
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: '#c0392b',
-    marginHorizontal: 4, // Space between buttons
-    maxWidth: '48%', // Ensures it doesn’t overflow out of the card
+    paddingVertical: 14, // Increased for better clickability
+    paddingHorizontal: 12,
+    borderRadius: 15, // Smoother rounded corners
+    backgroundColor: '#D32F2F', // More vibrant red
+    marginHorizontal: 6, // More space between buttons
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
   },
   
   deleteButtonText: {
     color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: 'bold',
     textAlign: 'center',
-    marginLeft: 6,
-    letterSpacing: 0.5,
+    marginLeft: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   
   cancelButton: {
-    flex: 1, // Makes buttons take equal space inside the row
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: '#FF9800',
-    marginHorizontal: 4, // Space between buttons
-    maxWidth: '48%', // Ensures it doesn’t overflow out of the card
-    paddingLeft: 10,
-    paddingRight: 10,
+    paddingVertical: 14, // More height
+    paddingHorizontal: 12,
+    borderRadius: 15, // Smoother rounded edges
+    backgroundColor: '#FF9800', // Brighter orange
+    marginHorizontal: 6,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
   },
   
   cancelButtonText: {
     color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: 'bold',
     textAlign: 'center',
-    marginLeft: 6,
-    letterSpacing: 0.5,
+    marginLeft: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   
   cardHeader: {
