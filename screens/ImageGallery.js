@@ -14,110 +14,99 @@ const ImageGallery = ({ images = [], editing = false, onDeleteImage, onAddImage 
   const [currentIndex, setCurrentIndex] = useState(0);
   const windowWidth = Dimensions.get('window').width;
 
-  const goToNext = () => {
-    if (currentIndex < images.length - 1) {
-      setCurrentIndex((prevIndex) => prevIndex + 1);
-    }
-  };
-
-  const goToPrevious = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex((prevIndex) => prevIndex - 1);
-    }
-  };
-
-  return (
-    <View style={styles.container}>
-      <View style={[styles.imageContainer, { width: windowWidth - 32 }]}>
-        {/* Show Image */}
-        {images.length > 0 ? (
-  <>
-    <Image
-      source={{ 
-        uri: images[currentIndex]?.startsWith("http") 
-          ? images[currentIndex] 
-          : images[currentIndex]?.startsWith("file://") 
-            ? images[currentIndex] 
-            : `file://${images[currentIndex]}` 
-      }}
-      style={styles.image}
-      resizeMode="cover"
-    />
-
-    {editing && (
-      <TouchableOpacity
-        style={styles.deleteButton}
-        onPress={() => {
-          Alert.alert(
-            "Delete Image",
-            "Are you sure you want to delete this image?",
-            [
-              { text: "Cancel", style: "cancel" },
-              {
+  const handleDelete = async () => {
+    Alert.alert(
+        "Delete Image",
+        "Are you sure you want to delete this image?",
+        [
+            { text: "Cancel", style: "cancel" },
+            {
                 text: "Delete",
                 style: "destructive",
                 onPress: async () => {
-                  await onDeleteImage(currentIndex);
-                  setCurrentIndex((prevIndex) => 
-                    prevIndex >= images.length - 1 ? Math.max(0, prevIndex - 1) : prevIndex
-                  );
+                    if (images.length > 0) {
+                        await onDeleteImage(currentIndex);  // ✅ Call delete function
+
+                        // ✅ After deletion, update index correctly
+                        setCurrentIndex((prevIndex) => 
+                            prevIndex >= images.length - 1 ? Math.max(0, prevIndex - 1) : prevIndex
+                        );
+                    }
                 },
-              },
-            ]
-          );
-        }}
-      >
-        <MaterialIcons name="delete" size={24} color="white" />
-      </TouchableOpacity>
-    )}
-  </>
-) : null}
+            },
+        ]
+    );
+};
 
+  return (
+      <View style={styles.container}>
+          <View style={[styles.imageContainer, { width: windowWidth - 32 }]}>
+              {/* Show Image */}
+              {images.length > 0 ? (
+                  <>
+                      <Image
+                          source={{ uri: images[currentIndex]?.includes("192.168.") || images[currentIndex]?.includes("localhost")
+                              ? images[currentIndex].replace("http://192.168.8.138:5001", "https://service-booking-backend-eb9i.onrender.com")
+                              : images[currentIndex]
+                          }}
+                          style={styles.image}
+                          resizeMode="cover"
+                      />
 
-        {/* Navigation Buttons */}
-        {images.length > 1 && (
-          <View style={styles.navigationContainer}>
-            <TouchableOpacity
-              style={[styles.navButton, currentIndex === 0 && styles.navButtonDisabled]}
-              onPress={goToPrevious}
-              disabled={currentIndex === 0}
-            >
-              <MaterialIcons name="chevron-left" size={30} color={currentIndex === 0 ? "#ccc" : "white"} />
-            </TouchableOpacity>
+                      {editing && (
+                          <TouchableOpacity
+                              style={styles.deleteButton}
+                              onPress={handleDelete}
+                          >
+                              <MaterialIcons name="delete" size={24} color="white" />
+                          </TouchableOpacity>
+                      )}
+                  </>
+              ) : null}
 
-            <TouchableOpacity
-              style={[styles.navButton, currentIndex >= images.length - 1 && styles.navButtonDisabled]}
-              onPress={goToNext}
-              disabled={currentIndex >= images.length - 1}
-            >
-              <MaterialIcons name="chevron-right" size={30} color={currentIndex >= images.length - 1 ? "#ccc" : "white"} />
-            </TouchableOpacity>
+              {/* Navigation Buttons */}
+              {images.length > 1 && (
+                  <View style={styles.navigationContainer}>
+                      <TouchableOpacity
+                          style={[styles.navButton, currentIndex === 0 && styles.navButtonDisabled]}
+                          onPress={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
+                          disabled={currentIndex === 0}
+                      >
+                          <MaterialIcons name="chevron-left" size={30} color={currentIndex === 0 ? "#ccc" : "white"} />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                          style={[styles.navButton, currentIndex >= images.length - 1 && styles.navButtonDisabled]}
+                          onPress={() => setCurrentIndex(prev => Math.min(images.length - 1, prev + 1))}
+                          disabled={currentIndex >= images.length - 1}
+                      >
+                          <MaterialIcons name="chevron-right" size={30} color={currentIndex >= images.length - 1 ? "#ccc" : "white"} />
+                      </TouchableOpacity>
+                  </View>
+              )}
           </View>
-        )}
+
+          {/* Image Counter */}
+          {images.length > 0 && (
+              <View style={styles.counterContainer}>
+                  <Text style={styles.counterText}>{`${currentIndex + 1} of ${images.length}`}</Text>
+              </View>
+          )}
+
+          {/* Add Image Button */}
+          {editing && (
+              <TouchableOpacity
+                  style={[styles.addImageButton, images.length === 0 && styles.addImageButtonNoImages]}
+                  onPress={onAddImage}
+              >
+                  <MaterialIcons name="add-photo-alternate" size={30} color="white" />
+                  <Text style={styles.addImageButtonText}>Add Image</Text>
+              </TouchableOpacity>
+          )}
       </View>
-
-      {/* Image Counter */}
-      {images.length > 0 && (
-  <View style={styles.counterContainer}>
-    <Text style={styles.counterText}>{`${currentIndex + 1} of ${images.length}`}</Text>
-  </View>
-)}
-
-      {/* Add Image Button (only visible when editing is on) */}
-         {/* Add Image Button (only visible when editing is on) */}
-         {editing && (
-        <TouchableOpacity 
-          style={[styles.addImageButton, images.length === 0 && styles.addImageButtonNoImages]} 
-          onPress={onAddImage}
-        >
-          <MaterialIcons name="add-photo-alternate" size={30} color="white" />
-          <Text style={styles.addImageButtonText}>Add Image</Text>
-        </TouchableOpacity>
-      )}
-
-    </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {

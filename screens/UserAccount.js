@@ -38,6 +38,8 @@ const UserAccount = ({ route, navigation }) => {
   const [showPasswordFields, setShowPasswordFields] = useState(false);
   const [isPasswordValid, setIsPasswordValid] = useState(true);
   const [editingIndex, setEditingIndex] = useState(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [deletedImages, setDeletedImages] = useState([]); // Store deleted images
 
   const [passwordFields, setPasswordFields] = useState({
     oldPassword: '',
@@ -68,12 +70,12 @@ const UserAccount = ({ route, navigation }) => {
     return unsubscribe;
   }, [navigation]);
   
-
+  
   const fetchUserDetails = async () => {
     try {
         const token = await AsyncStorage.getItem("authToken");
         const response = await fetch(
-            "https://service-booking-backend-eb9i.onrender.com/api/auth/get-user",
+            "http://192.168.8.138:5001/api/auth/get-user",
             { headers: { Authorization: `Bearer ${token}` } }
         );
 
@@ -89,7 +91,7 @@ const UserAccount = ({ route, navigation }) => {
                     businessAddress: "",
                     town: "",
                     yearsOfExperience: "",
-                    services: [],
+                    services: [], // ✅ Initialize empty services array
                     operatingHours: {
                         Monday: { start: null, end: null, isClosed: false },
                         Tuesday: { start: null, end: null, isClosed: false },
@@ -105,23 +107,31 @@ const UserAccount = ({ route, navigation }) => {
                         instagram: "",
                         linkedin: ""
                     },
-                    images: [] // ✅ Ensure images is always defined
+                    images: [] // ✅ Ensure images array is always defined
                 };
 
                 if (data.user.completeProfile) {
                     defaultFields.businessAddress = data.user.completeProfile.businessAddress || "";
                     defaultFields.town = data.user.completeProfile.town || "";
                     defaultFields.yearsOfExperience = data.user.completeProfile.yearsOfExperience || "";
-                    defaultFields.services = data.user.completeProfile.services?.map(s => ({
-                        name: s.name,
-                        category: s.category,
-                        price: s.price.toString(),
-                        priceType: s.priceType?.toString() || "hour",
-                    })) || [];
+
+                    // ✅ Merge existing services if available
+                    defaultFields.services = Array.isArray(data.user.completeProfile.services)
+                        ? data.user.completeProfile.services.map(s => ({
+                              id: s._id || null,  // Ensure service ID is retained
+                              name: s.name,
+                              category: s.category,
+                              price: s.price?.toString() || "0",
+                              priceType: s.priceType?.toString() || "hour"
+                          }))
+                        : [];
 
                     defaultFields.operatingHours = data.user.completeProfile.operatingHours || defaultFields.operatingHours;
                     defaultFields.socialLinks = data.user.completeProfile.socialLinks || defaultFields.socialLinks;
-                    defaultFields.images = data.user.completeProfile.images || []; // ✅ Fix: Ensure images exists
+
+                    defaultFields.images = data.user.completeProfile.images?.map(img =>
+                        img.startsWith("http") ? img : `http://192.168.8.138:5001/${img.replace(/\\/g, "/")}`
+                    ) || [];
                 }
 
                 setEditableFields(defaultFields);
@@ -138,6 +148,7 @@ const UserAccount = ({ route, navigation }) => {
         setLoading(false);
     }
 };
+
 
 
 const confirmDeleteService = (serviceId, index) => {
@@ -157,7 +168,7 @@ const addServiceToProvider = async (service) => {
     if (!token) throw new Error("Authentication token is missing.");
 
     const response = await fetch(
-      "https://service-booking-backend-eb9i.onrender.com/api/auth/add-service",
+      "http://192.168.8.138:5001/api/auth/add-service",
       {
         method: "POST",
         headers: {
@@ -178,12 +189,11 @@ const addServiceToProvider = async (service) => {
     if (!data.success) throw new Error(data.message || "Failed to add service");
 
     // Update UI
-    setEditableFields((prev) => {
-      return {
-        ...prev,
-        services: prev.services ? [...prev.services, service] : [service], // ✅ Ensures proper appending
-      };
-    });
+    setEditableFields((prev) => ({
+      ...prev,
+      services: [...(prev.services || []), service], // ✅ Appends the new service without replacing existing ones
+    }));
+    
     
 
     Toast.show({
@@ -212,8 +222,9 @@ const addPredefinedService = () => {
   // Use spread operator to create a new array with all existing services plus the new one
   setEditableFields((prev) => ({
     ...prev,
-    services: [...(prev.services || []), defaultService],
+    services: [...(prev.services || []), service], // ✅ Appends the new service without replacing existing ones
   }));
+  
 };
 
 // Function to handle adding a custom service
@@ -228,84 +239,88 @@ const addCustomService = (name, category, price, priceType) => {
   // Use spread operator to create a new array with all existing services plus the new one
   setEditableFields((prev) => ({
     ...prev,
-    services: [...(prev.services || []), newService],
+    services: [...(prev.services || []), service], // ✅ Appends the new service without replacing existing ones
   }));
+  
 };
 const pickNewBusinessImage = async () => {
   try {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Toast.show({
-        type: "error",
-        text1: "Permission needed",
-        text2: "Please grant camera roll permissions to upload photos.",
-      });
-      return;
-    }
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+          Toast.show({
+              type: "error",
+              text1: "Permission needed",
+              text2: "Please grant camera roll permissions to upload photos.",
+          });
+          return;
+      }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
-
-    console.log("Image Picker Result:", result);
-
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      const localImageUri = result.assets[0].uri;
-      console.log("Local Image URI:", localImageUri);
-
-      // 1️⃣ Update UI Immediately with Local Image
-      setEditableFields((prev) => ({
-        ...prev,
-        images: [...(prev.images || []), localImageUri], // Adds local image before upload
-      }));
-
-      const token = await AsyncStorage.getItem("authToken");
-      if (!token) throw new Error("Authentication token is missing.");
-
-      const formData = new FormData();
-      formData.append("image", {
-        uri: Platform.OS === "android" ? localImageUri : localImageUri.replace("file://", ""),
-        name: `business_${Date.now()}.jpg`,
-        type: "image/jpeg",
+      const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 1,
       });
 
-      const response = await fetch("https://service-booking-backend-eb9i.onrender.com/api/auth/images/add", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
+      if (!result.canceled && result.assets.length > 0) {
+          const localImageUri = result.assets[0].uri;
+          console.log("Local Image URI:", localImageUri);
 
-      const data = await response.json();
-      console.log("Server Response:", data);
+          // ✅ Update UI Immediately with Local Image
+          setEditableFields((prev) => ({
+              ...prev,
+              images: [...(prev.images || []), localImageUri],
+          }));
 
-      if (!response.ok || !data.success) throw new Error(data.message || "Failed to upload image");
+          const token = await AsyncStorage.getItem("authToken");
+          if (!token) throw new Error("Authentication token is missing.");
 
-      // 2️⃣ Replace Local Image with Uploaded URL
-      setEditableFields((prev) => ({
-        ...prev,
-        images: prev.images.map((img) =>
-          img === localImageUri ? `https://service-booking-backend-eb9i.onrender.com/${data.images[data.images.length - 1].replace(/\\/g, "/")}` : img
-        ),
-      }));
+          const formData = new FormData();
+          formData.append("image", {
+              uri: Platform.OS === "android" ? localImageUri : localImageUri.replace("file://", ""),
+              name: `business_${Date.now()}.jpg`,
+              type: "image/jpeg",
+          });
 
-      Toast.show({
-        type: "success",
-        text1: "Image Uploaded",
-        text2: "Business image added successfully.",
-      });
-    }
+          const response = await fetch(
+            "http://192.168.8.138:5001/api/auth/images/add",
+            {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+                body: formData,
+            }
+        );
+        
+        const data = await response.json();
+        console.log("Server Response:", data);
+        
+        if (!data.imagePath || typeof data.imagePath !== "string") {
+            throw new Error("Invalid imagePath received from server.");
+        }
+        
+        setEditableFields((prev) => ({
+            ...prev,
+            images: prev.images.map((img) =>
+                img === localImageUri
+                    ? `http://192.168.8.138:5001/${data.imagePath.replace(/\\/g, "/")}`
+                    : img
+            ),
+        }));
+    
+
+          Toast.show({
+              type: "success",
+              text1: "Image Uploaded",
+              text2: "Business image added successfully.",
+          });
+      }
   } catch (error) {
-    console.error("Error adding image:", error);
-    Toast.show({
-      type: "error",
-      text1: "Error",
-      text2: error.message || "Failed to upload image.",
-    });
+      console.error("Error adding image:", error);
+      Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: error.message || "Failed to upload image.",
+      });
   }
 };
 
@@ -324,7 +339,7 @@ const pickNewBusinessImage = async () => {
       });
   
       const response = await fetch(
-        `https://service-booking-backend-eb9i.onrender.com/api/auth/update-profile-picture/${userDetails.id}`,
+        `http://192.168.8.138:5001/api/auth/update-profile-picture/${userDetails.id}`,
         {
           method: "PUT",
           headers: {
@@ -370,7 +385,7 @@ const pickNewBusinessImage = async () => {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: [ImagePicker.MediaType.IMAGE],
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 1,
@@ -402,69 +417,20 @@ const pickNewBusinessImage = async () => {
       await uploadProfilePicture(result.assets[0].uri);
     }
   };
-  const deleteBusinessImage = async (index) => {
-    try {
-        const token = await AsyncStorage.getItem("authToken");
-        if (!token) {
-            Toast.show({
-                type: "error",
-                text1: "Authentication Error",
-                text2: "Please log in again.",
-            });
-            return;
-        }
+  const deleteBusinessImage = (index) => {
+    // Capture image before state update
+    const imageToDelete = editableFields.images[index];
+    
+    // Optimistic UI update
+    setEditableFields(prev => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index)
+    }));
+    
+    // Track deleted images correctly
+    setDeletedImages(prev => [...prev, imageToDelete]);
+  };
 
-        const imagePath = editableFields.images[index];
-
-        console.log("Attempting to delete image:", imagePath);
-
-        // Extract only the relative image path
-        const relativePath = imagePath.replace(/^http:\/\/192.168.8.138:5001\//, '').replace(/\//g, '\\');
-
-        // Send DELETE request to backend
-        const response = await fetch("https://service-booking-backend-eb9i.onrender.com/api/auth/images/delete", {
-            method: "DELETE",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ imagePath: relativePath }) // Ensure correct format
-        });
-
-        const data = await response.json();
-
-        if (!response.ok || !data.success) {
-            throw new Error(data.message || "Failed to delete image");
-        }
-
-        console.log("Backend confirmed image deletion:", data);
-
-        // ✅ Immediately Update the State After Successful Deletion
-        setEditableFields((prev) => ({
-            ...prev,
-            images: prev.images.filter((_, i) => i !== index),
-        }));
-
-        // ✅ Fetch Fresh Data from Backend
-        await fetchUserDetails();
-
-        Toast.show({
-            type: "success",
-            text1: "Image Deleted",
-            text2: "Business image removed successfully.",
-        });
-
-    } catch (error) {
-        console.error("Error deleting image:", error);
-        Toast.show({
-            type: "error",
-            text1: "Error",
-            text2: error.message || "Failed to delete image.",
-        });
-    }
-};
-
-  
   const handleTimePickerConfirm = (value) => {
     const [day, field] = activeTimeField.split(".");
     setEditableFields((prev) => ({
@@ -507,20 +473,13 @@ const pickNewBusinessImage = async () => {
       ]
     }));
   };
-
   const updateService = (index, field, value) => {
-    setEditableFields(prev => {
-      if (!prev.services[index]) return prev; // Prevent potential undefined errors
-  
-      return {
-        ...prev,
-        services: prev.services.map((service, i) =>
-          i === index ? { ...service, [field]: value } : service
-        ),
-      };
+    setEditableFields((prev) => {
+      const updatedServices = [...prev.services];
+      updatedServices[index] = { ...updatedServices[index], [field]: value }; // ✅ Ensures direct update
+      return { ...prev, services: updatedServices };
     });
   };
-  
   
   const deleteService = async (serviceId, index) => {
     try {
@@ -530,7 +489,7 @@ const pickNewBusinessImage = async () => {
       setLoading(true); // Start loading
   
       const response = await fetch(
-        `https://service-booking-backend-eb9i.onrender.com/api/auth/delete-service/${serviceId}`,
+        `http://192.168.8.138:5001/api/auth/delete-service/${serviceId}`,
         {
           method: "DELETE",
           headers: {
@@ -550,8 +509,9 @@ const pickNewBusinessImage = async () => {
         // Remove service from UI
         setEditableFields((prev) => ({
           ...prev,
-          services: prev.services.filter((_, i) => i !== index),
+          services: prev.services ? prev.services.filter((_, i) => i !== index) : [],
         }));
+        
   
         Toast.show({
           type: "success",
@@ -621,13 +581,27 @@ const pickNewBusinessImage = async () => {
             </Text>
           </TouchableOpacity>
         )}
-        {editing && showPasswordFields && (
-          <PasswordFields
-            passwordFields={passwordFields}
-            setPasswordFields={setPasswordFields}
-            onValidationChange={setIsPasswordValid}
-          />
-        )}
+   {editing && showPasswordFields && (
+  <>
+    <PasswordFields
+      passwordFields={passwordFields}
+      setPasswordFields={setPasswordFields}
+      onValidationChange={setIsPasswordValid}
+    />
+
+    {editableFields.errors?.oldPassword && (
+      <Text style={styles.errorText}>{editableFields.errors.oldPassword}</Text>
+    )}
+    {editableFields.errors?.newPassword && (
+      <Text style={styles.errorText}>{editableFields.errors.newPassword}</Text>
+    )}
+    {editableFields.errors?.confirmPassword && (
+      <Text style={styles.errorText}>{editableFields.errors.confirmPassword}</Text>
+    )}
+  </>
+)}
+
+
       </>
     );
   };
@@ -670,62 +644,56 @@ const pickNewBusinessImage = async () => {
 ))}
 
         </View>
-  
-       <View style={styles.section}>
+        <View style={styles.section}>
   <Text style={styles.sectionTitle}>Services Offered</Text>
 
+  {editing && (
+    <View style={styles.editingBanner}>
+      <MaterialIcons name="info-outline" size={20} color="#FFC107" />
+      <Text style={styles.editingText}>
+        You can edit your services here. After making changes, tap the save icon (✔) on the top right to save.
+      </Text>
+    </View>
+  )}
+
   {editableFields.services.length === 0 ? (
-    <Text style={styles.noServicesText}>No services listed</Text>
+     <Text style={styles.noServicesText}>
+     No services listed. Add services to display them here.
+   </Text>
   ) : (
     editableFields.services.map((service, index) => (
       <View key={index} style={styles.serviceCard}>
-   {editing && (
-    <TouchableOpacity 
-  style={styles.deleteServiceButton} 
-  onPress={() => confirmDeleteService(service._id, index)}
-  activeOpacity={0.7} // Ensures better click feedback
->
-  <MaterialIcons name="delete" size={28} color="white" />
-</TouchableOpacity>
-
-)}
-
-
+        
+        {editing && (
+          <TouchableOpacity 
+            style={styles.deleteServiceButton} 
+            onPress={() => confirmDeleteService(service._id, index)}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="delete" size={24} color="white" />
+          </TouchableOpacity>
+        )}
 
         <Text style={styles.serviceName}>{service.name}</Text>
         <Text style={styles.serviceDetail}>Category: {service.category}</Text>
 
         {editing ? (
           <View style={styles.serviceEditRow}>
-       <TextInput
-  style={styles.priceInput}
-  value={editableFields.services[index]?.price?.toString() || ""}
-  keyboardType="numeric"
-  onChangeText={(text) => updateService(index, "price", text)}
-/>
+            <TextInput
+              style={styles.priceInput}
+              value={editableFields.services[index]?.price?.toString() || ""}
+              keyboardType="numeric"
+              onChangeText={(text) => updateService(index, "price", text)}
+            />
 
-<Picker
-  selectedValue={editableFields.services[index]?.priceType || "hour"}
-  onValueChange={(value) => {
-    setEditableFields(prev => {
-      const updatedServices = [...prev.services];
-      updatedServices[index] = {
-        ...updatedServices[index],
-        priceType: value.toString(), // Ensures correct format
-      };
-      return { ...prev, services: updatedServices };
-    });
-  }}
-  style={styles.priceTypePicker}
->
-
-
-
-  <Picker.Item label="Per Hour" value="hour" />
-  <Picker.Item label="One-Time" value="service" />
-</Picker>
-
-
+            <Picker
+              selectedValue={editableFields.services[index]?.priceType || "hourly"}
+              onValueChange={(value) => updateService(index, "priceType", value)}
+              style={styles.priceTypePicker}
+            >
+              <Picker.Item label="Per Hour" value="hourly" />
+              <Picker.Item label="One-Time" value="once-off" />
+            </Picker>
           </View>
         ) : (
           <Text style={styles.servicePrice}>
@@ -859,160 +827,198 @@ const pickNewBusinessImage = async () => {
       </>
     );
   };
-  
   const saveChanges = async () => {
     try {
-      const token = await AsyncStorage.getItem("authToken");
-      if (!token) throw new Error("Authentication token is missing");
-  
-      let errors = {};
-  
-      // Validate basic fields
-      if (!editableFields.name) errors.name = "Name cannot be empty.";
-      if (!editableFields.email) {
-        errors.email = "Email cannot be empty.";
-      } else {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(editableFields.email)) {
-          errors.email = "Invalid email format.";
+        const token = await AsyncStorage.getItem("authToken");
+        if (!token) throw new Error("Authentication token is missing");
+
+        let errors = {};
+
+        // Validate Name, Email, and Phone
+        if (!editableFields.name) errors.name = "Name cannot be empty.";
+        if (!editableFields.email) {
+            errors.email = "Email cannot be empty.";
+        } else {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(editableFields.email)) {
+                errors.email = "Invalid email format.";
+            }
         }
-      }
-  
-      if (!editableFields.phone) {
-        errors.phone = "Phone number cannot be empty.";
-      } else {
-        const validNamibianPrefixes = [
-          "061", "062", "063", "064", "065", "066", "067", "060", "081", "083", "084", "085",
-        ];
-        const prefix = editableFields.phone.substring(0, 3);
-        if (!validNamibianPrefixes.includes(prefix) || editableFields.phone.length < 10) {
-          errors.phone = "Invalid Namibian phone number.";
+        if (!editableFields.phone) errors.phone = "Phone number cannot be empty.";
+
+        // Validate Password Fields if Changing Password
+        if (showPasswordFields) {
+            if (!passwordFields.oldPassword) {
+                errors.oldPassword = "Current password is required.";
+            }
+            if (!passwordFields.newPassword) {
+                errors.newPassword = "New password is required.";
+            }
+            if (!passwordFields.confirmPassword) {
+                errors.confirmPassword = "Confirm password is required.";
+            }
+
+            const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
+            if (passwordFields.newPassword && !passwordRegex.test(passwordFields.newPassword)) {
+                errors.newPassword = "Password must be at least 8 characters, contain an uppercase letter, and a number.";
+            }
+
+            if (passwordFields.newPassword !== passwordFields.confirmPassword) {
+                errors.confirmPassword = "New password and confirm password do not match.";
+            }
         }
 
-        
-      }
-  
-      // Validate provider-specific fields
-      if (userDetails.role === "Provider") {
-        if (!editableFields.businessAddress) {
-          errors.businessAddress = "Business address cannot be empty.";
+        // If validation errors exist, display them
+        if (Object.keys(errors).length > 0) {
+            setEditableFields((prev) => ({ ...prev, errors }));
+            Toast.show({
+                type: "error",
+                text1: "Validation Error",
+                text2: Object.values(errors).join("\n"),
+            });
+            return;
         }
-        if (!editableFields.town) {
-          errors.town = "Town cannot be empty.";
+
+        // **Ensure `userDetails._id` is valid**
+        if (!userDetails || !userDetails._id) {
+            throw new Error("User ID is missing. Please try logging in again.");
         }
-        if (userDetails.role === "Provider") {
-          if (!editableFields.services || editableFields.services.length === 0) {
-            console.warn("No services listed, allowing save");
-            editableFields.services = []; // Ensure it's always an array
-          }
+
+        // **Step 1: If Changing Password, Verify & Update It First**
+        if (showPasswordFields) {
+            console.log("Updating password...");
+            const passwordResponse = await fetch(
+                `http://192.168.8.138:5001/api/auth/update-password/${userDetails._id}`,
+                {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        oldPassword: passwordFields.oldPassword,
+                        newPassword: passwordFields.newPassword,
+                    }),
+                }
+            );
+
+            const passwordData = await passwordResponse.json();
+
+            if (!passwordResponse.ok || !passwordData.success) {
+                console.log("Password update failed:", passwordData);
+
+                // ✅ Show error message in the UI when the old password is incorrect
+                setEditableFields((prev) => ({
+                    ...prev,
+                    errors: {
+                        ...prev.errors,
+                        oldPassword: passwordData.message || "Incorrect current password.",
+                    },
+                }));
+
+                Toast.show({
+                    type: "error",
+                    text1: "Password Error",
+                    text2: passwordData.message || "The current password you entered is incorrect.",
+                });
+
+                return; // Stop execution if the password update fails
+            }
+
+            console.log("Password update successful:", passwordData);
+            Toast.show({
+                type: "success",
+                text1: "Success",
+                text2: "Password updated successfully.",
+            });
+
+            // Reset password fields after successful update
+            setPasswordFields({
+                oldPassword: "",
+                newPassword: "",
+                confirmPassword: "",
+            });
+            setShowPasswordFields(false);
         }
-        
-        if (
-          !editableFields.operatingHours ||
-          Object.keys(editableFields.operatingHours).length === 0
-        ) {
-          errors.operatingHours = "Operating hours cannot be empty.";
+
+        // **Step 2: Prepare Profile Update Data**
+        const updateData = {
+            name: editableFields.name,
+            email: editableFields.email,
+            phone: editableFields.phone,
+            completeProfile: {
+                businessAddress: editableFields.businessAddress || "",
+                town: editableFields.town || "",
+                yearsOfExperience: editableFields.yearsOfExperience || "",
+                services: editableFields.services.map(service => ({
+                    name: service.name,
+                    category: service.category,
+                    price: parseFloat(service.price) || 0,
+                    priceType: service.priceType || "hourly",
+                })),
+                operatingHours: editableFields.operatingHours || {},
+                socialLinks: editableFields.socialLinks || {},
+                images: editableFields.images.map(img =>
+                    img.replace(/^https?:\/\/[^/]+\//, "").replace(/\\/g, "/")
+                ),
+            },
+        };
+
+        console.log("Sending profile update request:", updateData);
+
+        // **Step 3: Send Profile Update Request**
+        const response = await fetch(
+            `http://192.168.8.138:5001/api/auth/update-user/${userDetails._id}`,
+            {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(updateData),
+            }
+        );
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            console.log("Profile update failed:", data);
+            throw new Error(data.message || "Failed to update profile");
         }
-      }
-  
-      // If there are errors, set them and stop execution
-      if (Object.keys(errors).length > 0) {
+
+        console.log("Profile update successful:", data);
+        setEditing(false);
+        fetchUserDetails();
+
+        Toast.show({
+            type: "success",
+            text1: "Success",
+            text2: "Profile updated successfully.",
+        });
+
+    } catch (error) {
+        console.error("Error saving changes:", error);
+
+        // ✅ Display the error in the UI
         setEditableFields((prev) => ({
-          ...prev,
-          errors,
+            ...prev,
+            errors: {
+                ...prev.errors,
+                oldPassword: error.message.includes("Incorrect current password")
+                    ? "Incorrect current password."
+                    : "",
+            },
         }));
-        return;
-      }
-  
-      let updateData = {
-        name: editableFields.name,
-        email: editableFields.email,
-        phone: editableFields.phone,
-      };
-  
-      if (showPasswordFields) {
-        if (!isPasswordValid) {
-          Toast.show({
+
+        Toast.show({
             type: "error",
             text1: "Error",
-            text2: "Please fix password validation errors before saving.",
-          });
-          return;
-        }
-        if (passwordFields.newPassword) {
-          updateData.oldPassword = passwordFields.oldPassword;
-          updateData.newPassword = passwordFields.newPassword;
-        }
-      }
-      if (userDetails.role === "Provider") {
-        updateData.completeProfile = {
-          businessAddress: editableFields.businessAddress,
-          town: editableFields.town,
-          yearsOfExperience: editableFields.yearsOfExperience,
-          services: editableFields.services.map(service => ({
-            name: service.name,
-            category: service.category,
-            price: parseFloat(service.price) || 0,
-            priceType: service.priceType?.toString() || "hour", // Ensures `priceType` is always a string
-          })),
-                 
-          operatingHours: editableFields.operatingHours,
-          socialLinks: editableFields.socialLinks || {}, // Ensure socialLinks is always an object
-        };
-      }
-      
-      const response = await fetch(
-        `https://service-booking-backend-eb9i.onrender.com/api/auth/update-user/${userDetails.id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(updateData),
-        }
-      );
-  
-      const data = await response.json();
-      if (!data.success) {
-        // Handle email-specific error
-        if (data.message && data.message.toLowerCase().includes("email")) {
-          setEditableFields((prev) => ({
-            ...prev,
-            errors: { ...prev.errors, email: data.message },
-          }));
-        } else {
-          throw new Error(data.message || "Failed to update user details");
-        }
-        return;
-      }
-      if (data.message?.toLowerCase().includes("current password")) {
-        setPasswordFields((prev) => ({
-          ...prev,
-          error: "Current password is incorrect.",
-        }));
-        return;
-      }
-      
-      setEditing(false);
-      setShowPasswordFields(false);
-      setPasswordFields({ oldPassword: "", newPassword: "", confirmPassword: "" });
-  
-      Toast.show({
-        type: "success",
-        text1: "Success",
-        text2: "Profile updated successfully.",
-      });
-  
-      fetchUserDetails();
-    } catch (error) {
-      Toast.show({
-        type: "error",
-        text1: "Error",
-        text2: error.message || "Failed to save changes.",
-      });
+            text2: error.message || "Failed to save changes.",
+        });
+
+        fetchUserDetails();
     }
-  };
+};
+
   
   const renderBottomSidebar = () => (
     <Modal
@@ -1069,13 +1075,14 @@ const pickNewBusinessImage = async () => {
             >
 <Image
   source={{
-    uri: userDetails?.profileImage
-      ? `https://service-booking-backend-eb9i.onrender.com/${userDetails.profileImage.replace(/\\/g, "/")}`
-      : "https://service-booking-backend-eb9i.onrender.com/uploads/default-profile.png",
+    uri: userDetails?.profileImage && typeof userDetails.profileImage === "string"
+      ? `http://192.168.8.138:5001/${userDetails.profileImage.replace(/\\/g, "/")}`
+      : "http://192.168.8.138:5001/uploads/default-profile.png",
   }}
   style={styles.profileImage}
   resizeMode="cover"
 />
+
               <View style={styles.editOverlay}>
                 <MaterialIcons name="camera-alt" size={24} color="white" />
               </View>
@@ -1220,7 +1227,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   contentTitle: {
-    fontSize: 20,
+    fontSize: 30,
     fontWeight: "bold",
     color: "#1a237e",
   },
@@ -1228,6 +1235,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E3F2FD",
     padding: 10,
     borderRadius: 12,
+  
   },
   field: {
     marginBottom: 20,
@@ -1255,11 +1263,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 12,
-    color: '#333',
+    fontSize: 20, // Slightly larger for better readability
+    fontWeight: "bold", // Stronger emphasis
+    marginBottom: 14, // More spacing below
+    color: "#1a237e", // Uses your primary color
+    textTransform: "uppercase", // Adds a modern touch
+    letterSpacing: 0.8, // Improves spacing for better legibility
   },
+  
   noImagesText: {
     textAlign: 'center',
     color: '#666',
@@ -1268,64 +1279,105 @@ const styles = StyleSheet.create({
   },
   serviceCard: {
     backgroundColor: "#ffffff",
-    padding: 18,
-    borderRadius: 14,
-    marginBottom: 12,
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 16,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
     borderWidth: 1,
-    borderColor: "#E0E0E0",
+    borderColor: "#F0F0F0",
     flexDirection: "column",
-    position: "relative", // Needed for absolute positioning of delete button
+    position: "relative",
+  },
+  
+  cardContent: {
+    paddingRight: 36, // Space for delete button
   },
   
   deleteServiceButton: {
     position: "absolute",
-    top: 8,
-    right: 8,
-    backgroundColor: "#E53935", 
-    borderRadius: 20,
-    width: 40, // Make button slightly bigger for better touch detection
-    height: 40,
+    top: 12,
+    right: 12,
+    backgroundColor: "#E53935",
+    borderRadius: 24,
+    width: 36,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 4,
-    zIndex: 2, // Ensures it's above other elements
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 3,
+    zIndex: 2,
+  },
+  
+  deleteButtonIcon: {
+    color: "#FFFFFF",
+    fontSize: 18,
   },
   
   serviceName: {
     fontSize: 18,
     fontWeight: "700",
     color: "#1a237e",
-    marginBottom: 4,
+    marginBottom: 8,
+    letterSpacing: 0.2,
   },
   
   serviceDetail: {
-    fontSize: 14,
-    color: "#757575",
-    marginTop: 4,
-    fontStyle: "italic",
+    fontSize: 15,
+    color: "#5C5C5C",
+    marginTop: 6,
+    lineHeight: 20,
   },
   
   servicePrice: {
     fontSize: 16,
     color: "#27AE60",
-    fontWeight: "bold",
-    marginTop: 8,
+    fontWeight: "700",
+    marginTop: 14,
     backgroundColor: "#E8F5E9",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
     borderRadius: 8,
     alignSelf: "flex-start",
+    overflow: "hidden",
   },
   
+  // New styles for improved usability and visual appeal
+  serviceHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 6,
+  },
+  
+  serviceType: {
+    fontSize: 13,
+    color: "#7986CB",
+    fontWeight: "600",
+    marginBottom: 4,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  
+  divider: {
+    height: 1,
+    backgroundColor: "#F5F5F5",
+    marginVertical: 12,
+  },
+  
+  cardFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
+  },
+
   dayName: {
     fontSize: 16,
     fontWeight: '600',
@@ -1597,7 +1649,36 @@ noImagesText: {
   borderRadius: 10, // Soft rounded edges for a smooth look
 },
 
-  
+editingBanner: {
+  flexDirection: "row",
+  alignItems: "center",
+  backgroundColor: "#FFF3E0",
+  padding: 10,
+  borderRadius: 10,
+  marginBottom: 10,
+  borderLeftWidth: 4,
+  borderLeftColor: "#FFC107",
+},
+
+editingText: {
+  color: "#333",
+  fontSize: 14,
+  fontWeight: "500",
+  marginLeft: 8,
+  flex: 1,
+},
+noServicesText: {
+  textAlign: "center",
+  color: "#555",
+  fontSize: 16,
+  fontStyle: "italic",
+  paddingVertical: 20,
+  backgroundColor: "rgba(0, 0, 0, 0.05)", // Light background for subtle emphasis
+  paddingHorizontal: 16,
+  borderRadius: 10,
+  fontWeight: "500",
+},
+
 });
 
 export default UserAccount;

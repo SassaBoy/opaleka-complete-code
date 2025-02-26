@@ -49,7 +49,7 @@ const ViewBookingsPage = ({ navigation }) => {
         return navigation.navigate('Login');
       }
   
-      const endpoint = `https://service-booking-backend-eb9i.onrender.com/api/book/provider/bookings/${selectedTab.toLowerCase()}`;
+      const endpoint = `http://192.168.8.138:5001/api/book/provider/bookings/${selectedTab.toLowerCase()}`;
   
       const response = await axios.get(endpoint, {
         headers: { Authorization: `Bearer ${token}` },
@@ -99,7 +99,7 @@ const ViewBookingsPage = ({ navigation }) => {
             try {
               const token = await AsyncStorage.getItem('authToken');
               const response = await axios.post(
-                `https://service-booking-backend-eb9i.onrender.com/api/book/reject/${bookingId}`,
+                `http://192.168.8.138:5001/api/book/reject/${bookingId}`,
                 {},
                 { headers: { Authorization: `Bearer ${token}` } }
               );
@@ -131,7 +131,7 @@ setBookings([]); // Prevent UI from going blank while loading
 
       const token = await AsyncStorage.getItem('authToken');
       const response = await axios.post(
-        `https://service-booking-backend-eb9i.onrender.com/api/book/accept/${bookingId}`,
+        `http://192.168.8.138:5001/api/book/accept/${bookingId}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -165,7 +165,7 @@ setBookings([]); // Prevent UI from going blank while loading
               console.log(`Soft deleting completed job with ID: ${bookingId}`);
   
               const response = await axios.put(
-                `https://service-booking-backend-eb9i.onrender.com/api/book/completed/${bookingId}`,
+                `http://192.168.8.138:5001/api/book/completed/${bookingId}`,
                 {},
                 { headers: { Authorization: `Bearer ${token}` } }
               );
@@ -219,7 +219,7 @@ setBookings([]); // Prevent UI from going blank while loading
               console.log(`Soft deleting rejected booking with ID: ${bookingId}`);
   
               const response = await axios.put( // ✅ Use PUT for soft delete
-                `https://service-booking-backend-eb9i.onrender.com/api/book/rejected/${bookingId}`,
+                `http://192.168.8.138:5001/api/book/rejected/${bookingId}`,
                 {}, // No request body needed
                 { headers: { Authorization: `Bearer ${token}` } }
               );
@@ -270,7 +270,7 @@ setBookings([]); // Prevent UI from going blank while loading
             try {
               const token = await AsyncStorage.getItem('authToken');
               const response = await axios.post(
-                `https://service-booking-backend-eb9i.onrender.com/api/book/complete/${bookingId}`,
+                `http://192.168.8.138:5001/api/book/complete/${bookingId}`,
                 {},
                 { headers: { Authorization: `Bearer ${token}` } }
               );
@@ -319,8 +319,8 @@ setBookings([]); // Prevent UI from going blank while loading
           <Image
             source={{
               uri: item.profileImage
-                ? `https://service-booking-backend-eb9i.onrender.com/${item.profileImage}`
-                : "https://service-booking-backend-eb9i.onrender.com/uploads/default-profile.png",
+                ? `http://192.168.8.138:5001/${item.profileImage}`
+                : "http://192.168.8.138:5001/uploads/default-profile.png",
             }}
             style={styles.profileImage}
           />
@@ -468,8 +468,8 @@ setBookings([]); // Prevent UI from going blank while loading
             <Image
               source={{
                 uri: selectedBooking?.profileImage
-                  ? `https://service-booking-backend-eb9i.onrender.com/${selectedBooking.profileImage}`
-                  : "https://service-booking-backend-eb9i.onrender.com/uploads/default-profile.png",
+                  ? `http://192.168.8.138:5001/${selectedBooking.profileImage}`
+                  : "http://192.168.8.138:5001/uploads/default-profile.png",
               }}
               style={styles.modalImage}
             />
@@ -480,6 +480,12 @@ setBookings([]); // Prevent UI from going blank while loading
   <View style={styles.modalRow}>
     <MaterialIcons name="work" size={20} color="#666" />
     <Text style={styles.modalText}>{selectedBooking?.serviceName}</Text>
+  </View>
+  <View style={styles.modalRow}>
+    <MaterialIcons name="attach-money" size={20} color="#666" />
+    <Text style={styles.modalText}>
+      {selectedBooking?.price ? `NAD ${selectedBooking.price}` : "Price not available"}
+    </Text>
   </View>
   <View style={styles.modalRow}>
     <MaterialIcons name="email" size={20} color="#666" />

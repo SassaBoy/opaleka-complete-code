@@ -40,6 +40,8 @@ import ReservationDetailsPage from "../screens/ReservationDetailsPage";
 import SpeechInteractionScreen from "../screens/SpeechInteractionScreen";
 import ThankYou1Screen from "../screens/ThankYou1Screen";
 import PaymentReminder from "../screens/PaymentReminder";
+import SafetyFeaturesScreen from "../screens/SafetyFeaturesScreen";
+import PaymentTermsScreen from "../screens/PaymentTerms";
 
 const Stack = createStackNavigator();
 
@@ -93,6 +95,8 @@ const StackNavigator = () => {
         <Stack.Screen name="EnableFingerprintScreen" component={EnableFingerprintScreen} />
         <Stack.Screen name="SpeechInteractionScreen" component={SpeechInteractionScreen} />
         <Stack.Screen name="LoadingScreen" component={LoadingScreen} />
+        <Stack.Screen name="SafetyFeaturesScreen" component={SafetyFeaturesScreen} />
+        <Stack.Screen name="PaymentTerms" component={PaymentTermsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

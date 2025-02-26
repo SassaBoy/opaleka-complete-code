@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -21,10 +21,10 @@ const { width, height } = Dimensions.get('window');
 const PRIMARY_COLOR = '#1a237e';
 
 const WelcomeScreen = ({ navigation }) => {
-  // Animation values
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideUpAnim = useRef(new Animated.Value(50)).current;
-  const logoScale = useRef(new Animated.Value(0.8)).current;
+  // Animation values with proper initial values to prevent flashes
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const slideUpAnim = useRef(new Animated.Value(0)).current;
+  const logoScale = useRef(new Animated.Value(1)).current;
   
   // Background animation
   const bgTranslateX = useRef(new Animated.Value(0)).current;
@@ -42,99 +42,18 @@ const WelcomeScreen = ({ navigation }) => {
 
   // Prevent multiple clicks
   const [isNavigating, setIsNavigating] = useState(false);
+  
+  // Animation references for cleanup
+  const animationRefs = useRef({
+    bgLoop: null,
+    circle1Loop: null,
+    circle2Loop: null
+  }).current;
 
-  useFocusEffect(
-    React.useCallback(() => {
-      // Reset navigating state when screen is focused
-      setIsNavigating(false);
-      
-      // Reset animations
-      fadeAnim.setValue(0);
-      slideUpAnim.setValue(50);
-      logoScale.setValue(0.8);
-      
-      // Entrance animations
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideUpAnim, {
-          toValue: 0,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.spring(logoScale, {
-          toValue: 1,
-          friction: 6,
-          tension: 40,
-          useNativeDriver: true,
-        })
-      ]).start();
-      
-      // Background subtle movement
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(bgTranslateX, {
-            toValue: 10,
-            duration: 12000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(bgTranslateX, {
-            toValue: -10,
-            duration: 12000,
-            useNativeDriver: true,
-          })
-        ])
-      ).start();
-      
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(bgTranslateY, {
-            toValue: 10,
-            duration: 15000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(bgTranslateY, {
-            toValue: -10,
-            duration: 15000,
-            useNativeDriver: true,
-          })
-        ])
-      ).start();
-      
-      // Circle animations
-      animateCircles();
-      
-      // Handle back button on Android
-      const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-        if (navigation.isFocused()) {
-          // Reset navigation state when back button is pressed
-          setIsNavigating(false);
-          return false;
-        }
-        return false;
-      });
-      
-      return () => {
-        // Cleanup
-        fadeAnim.stopAnimation();
-        slideUpAnim.stopAnimation();
-        bgTranslateX.stopAnimation();
-        bgTranslateY.stopAnimation();
-        circle1Opacity.stopAnimation();
-        circle2Opacity.stopAnimation();
-        circle1Scale.stopAnimation();
-        circle2Scale.stopAnimation();
-        backHandler.remove();
-      };
-    }, [navigation])
-  );
-
-  const animateCircles = () => {
+  // Memoized animations to prevent recreation on re-renders
+  const animateCircles = useCallback(() => {
     // Circle 1 animation
-    Animated.loop(
+    animationRefs.circle1Loop = Animated.loop(
       Animated.sequence([
         Animated.parallel([
           Animated.timing(circle1Opacity, {
@@ -161,11 +80,11 @@ const WelcomeScreen = ({ navigation }) => {
           })
         ])
       ])
-    ).start();
+    );
     
     // Circle 2 animation with delay
-    setTimeout(() => {
-      Animated.loop(
+    const timer = setTimeout(() => {
+      animationRefs.circle2Loop = Animated.loop(
         Animated.sequence([
           Animated.parallel([
             Animated.timing(circle2Opacity, {
@@ -192,16 +111,130 @@ const WelcomeScreen = ({ navigation }) => {
             })
           ])
         ])
-      ).start();
+      );
+      
+      animationRefs.circle2Loop.start();
     }, 500);
-  };
+    
+    animationRefs.circle1Loop.start();
+    return () => clearTimeout(timer);
+  }, [circle1Opacity, circle1Scale, circle2Opacity, circle2Scale, animationRefs]);
 
-  const handleButtonPress = (role, buttonScale) => {
+  // Start background animations
+  const startBackgroundAnimations = useCallback(() => {
+    // Create the background animation sequence
+    animationRefs.bgLoop = Animated.loop(
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(bgTranslateX, {
+            toValue: 10,
+            duration: 12000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(bgTranslateX, {
+            toValue: -10,
+            duration: 12000,
+            useNativeDriver: true,
+          })
+        ]),
+        Animated.sequence([
+          Animated.timing(bgTranslateY, {
+            toValue: 10,
+            duration: 15000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(bgTranslateY, {
+            toValue: -10,
+            duration: 15000,
+            useNativeDriver: true,
+          })
+        ])
+      ])
+    );
+    
+    animationRefs.bgLoop.start();
+  }, [bgTranslateX, bgTranslateY, animationRefs]);
+
+  // Setup and cleanup animations
+  useFocusEffect(
+    useCallback(() => {
+      // Reset navigating state when screen is focused
+      setIsNavigating(false);
+      
+      // Start entrance animation only if returning from another screen
+      const entranceAnimation = Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideUpAnim, {
+          toValue: 0,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.spring(logoScale, {
+          toValue: 1,
+          friction: 6,
+          tension: 40,
+          useNativeDriver: true,
+        })
+      ]);
+      
+      entranceAnimation.start();
+      
+      // Start background animations
+      startBackgroundAnimations();
+      
+      // Start circle animations
+      const cleanupCircles = animateCircles();
+      
+      // Handle back button on Android
+      const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (navigation.isFocused()) {
+          // Reset navigation state when back button is pressed
+          setIsNavigating(false);
+          return false;
+        }
+        return false;
+      });
+      
+      return () => {
+        // Proper cleanup of all animations
+        entranceAnimation.stop();
+        
+        if (animationRefs.bgLoop) {
+          animationRefs.bgLoop.stop();
+        }
+        
+        if (animationRefs.circle1Loop) {
+          animationRefs.circle1Loop.stop();
+        }
+        
+        if (animationRefs.circle2Loop) {
+          animationRefs.circle2Loop.stop();
+        }
+        
+        cleanupCircles();
+        backHandler.remove();
+      };
+    }, [
+      navigation, 
+      fadeAnim, 
+      slideUpAnim, 
+      logoScale, 
+      startBackgroundAnimations, 
+      animateCircles,
+      animationRefs
+    ])
+  );
+
+  const handleButtonPress = useCallback((role, buttonScale) => {
     if (isNavigating) return;
     setIsNavigating(true);
     
     // Button press animation
-    Animated.sequence([
+    const buttonAnimation = Animated.sequence([
       Animated.timing(buttonScale, {
         toValue: 0.95,
         duration: 100,
@@ -213,12 +246,20 @@ const WelcomeScreen = ({ navigation }) => {
         tension: 50,
         useNativeDriver: true,
       }),
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
+    ]);
+    
+    // Exit animation
+    const exitAnimation = Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    });
+    
+    Animated.sequence([
+      buttonAnimation,
+      exitAnimation
     ]).start(() => {
+      // Navigate after the animations complete
       navigation.navigate("Login", { role });
       
       // Reset navigation state after a timeout to ensure it's reset if user comes back
@@ -226,6 +267,57 @@ const WelcomeScreen = ({ navigation }) => {
         setIsNavigating(false);
       }, 500);
     });
+  }, [fadeAnim, isNavigating, navigation]);
+
+  // Precompute animated styles to improve performance
+  const backgroundStyle = {
+    transform: [
+      { translateX: bgTranslateX },
+      { translateY: bgTranslateY },
+      { scale: 1.1 }
+    ]
+  };
+  
+  const circle1Style = {
+    opacity: circle1Opacity,
+    transform: [{ scale: circle1Scale }]
+  };
+  
+  const circle2Style = {
+    opacity: circle2Opacity,
+    transform: [{ scale: circle2Scale }]
+  };
+  
+  const mainContentStyle = {
+    opacity: fadeAnim,
+    transform: [{ translateY: slideUpAnim }]
+  };
+  
+  const logoContainerStyle = {
+    transform: [{ scale: logoScale }]
+  };
+  
+  const welcomeTextStyle = {
+    opacity: fadeAnim,
+    transform: [{ translateY: Animated.multiply(slideUpAnim, 0.5) }]
+  };
+  
+  const titleTextStyle = {
+    opacity: fadeAnim,
+    transform: [{ translateY: Animated.multiply(slideUpAnim, 0.7) }]
+  };
+  
+  const subtitleTextStyle = {
+    opacity: fadeAnim,
+    transform: [{ translateY: Animated.multiply(slideUpAnim, 0.9) }]
+  };
+  
+  const clientButtonStyle = {
+    transform: [{ scale: clientButtonScale }]
+  };
+  
+  const providerButtonStyle = {
+    transform: [{ scale: providerButtonScale }]
   };
 
   return (
@@ -235,13 +327,7 @@ const WelcomeScreen = ({ navigation }) => {
       {/* Animated gradient background */}
       <Animated.View style={[
         styles.backgroundContainer,
-        {
-          transform: [
-            { translateX: bgTranslateX },
-            { translateY: bgTranslateY },
-            { scale: 1.1 }
-          ]
-        }
+        backgroundStyle
       ]}>
         <LinearGradient
           colors={[PRIMARY_COLOR, '#2B1A60', '#1E0B41']}
@@ -255,10 +341,7 @@ const WelcomeScreen = ({ navigation }) => {
           style={[
             styles.circle,
             styles.circle1,
-            {
-              opacity: circle1Opacity,
-              transform: [{ scale: circle1Scale }]
-            }
+            circle1Style
           ]}
         />
         
@@ -266,10 +349,7 @@ const WelcomeScreen = ({ navigation }) => {
           style={[
             styles.circle,
             styles.circle2,
-            {
-              opacity: circle2Opacity,
-              transform: [{ scale: circle2Scale }]
-            }
+            circle2Style
           ]}
         />
       </Animated.View>
@@ -277,20 +357,18 @@ const WelcomeScreen = ({ navigation }) => {
       <SafeAreaView style={styles.content}>
         <Animated.View style={[
           styles.mainContent,
-          { 
-            opacity: fadeAnim,
-            transform: [{ translateY: slideUpAnim }]
-          }
+          mainContentStyle
         ]}>
           {/* Logo */}
           <Animated.View style={[
             styles.logoContainer,
-            { transform: [{ scale: logoScale }] }
+            logoContainerStyle
           ]}>
             <Image 
               source={require('../assets/image.png')} 
               style={styles.logo} 
-              resizeMode="contain" 
+              resizeMode="contain"
+              fadeDuration={0} // Prevent image flickering
             />
           </Animated.View>
           
@@ -298,36 +376,21 @@ const WelcomeScreen = ({ navigation }) => {
           <View style={styles.textContent}>
             <Animated.Text style={[
               styles.welcomeText,
-              { 
-                opacity: fadeAnim,
-                transform: [{ 
-                  translateY: Animated.multiply(slideUpAnim, 0.5) 
-                }] 
-              }
+              welcomeTextStyle
             ]}>
               Welcome to
             </Animated.Text>
             
             <Animated.Text style={[
               styles.titleText,
-              { 
-                opacity: fadeAnim,
-                transform: [{ 
-                  translateY: Animated.multiply(slideUpAnim, 0.7) 
-                }] 
-              }
+              titleTextStyle
             ]}>
               <Text style={styles.italicText}>Opaleka</Text>
             </Animated.Text>
             
             <Animated.Text style={[
               styles.subtitleText,
-              { 
-                opacity: fadeAnim,
-                transform: [{ 
-                  translateY: Animated.multiply(slideUpAnim, 0.9) 
-                }] 
-              }
+              subtitleTextStyle
             ]}>
               Book trusted professionals for any service, anytime.
             </Animated.Text>
@@ -345,7 +408,7 @@ const WelcomeScreen = ({ navigation }) => {
               <Animated.View style={[
                 styles.button,
                 styles.clientButton,
-                { transform: [{ scale: clientButtonScale }] }
+                clientButtonStyle
               ]}>
                 <LinearGradient
                   colors={[PRIMARY_COLOR, '#4F6AFF']}
@@ -368,7 +431,7 @@ const WelcomeScreen = ({ navigation }) => {
               <Animated.View style={[
                 styles.button,
                 styles.providerButton,
-                { transform: [{ scale: providerButtonScale }] }
+                providerButtonStyle
               ]}>
                 <LinearGradient
                   colors={[PRIMARY_COLOR, '#29A8BE']}

@@ -32,17 +32,24 @@ const SupportScreen = ({ navigation }) => {
       gradient: ['#2196F3', '#1565C0'],
     },
     {
-      title: 'Terms and Conditions',
-      screen: 'Terms',
-      icon: 'document-text-outline',
-      gradient: ['#FF9800', '#EF6C00'],
-    },
-    {
       title: 'Privacy Policy',
       screen: 'Privacy',
       icon: 'shield-checkmark-outline',
       gradient: ['#9C27B0', '#7B1FA2'],
+    },
+    {
+      title: 'Payment Terms',
+      screen: 'PaymentTerms',
+      icon: 'card-outline',
+      gradient: ['#009688', '#00796B'],
+    },
+    {
+      title: 'Terms and Conditions',
+      screen: 'Terms',
+      icon: 'document-text-outline',
+      gradient: ['#FF9800', '#EF6C00'],
     }
+    
   ];
 
   const socialLinks = [

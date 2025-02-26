@@ -61,9 +61,9 @@ setHistory((prev) => prev.sort((a, b) => new Date(b.createdAt) - new Date(a.crea
       // Fetch fresh data
       const token = await AsyncStorage.getItem('authToken');
       const endpoint = {
-        all: 'https://service-booking-backend-eb9i.onrender.com/api/book/history/all', 
-        completed: 'https://service-booking-backend-eb9i.onrender.com/api/book/history/completed', 
-        rejected: 'https://service-booking-backend-eb9i.onrender.com/api/book/history/rejected',
+        all: 'http://192.168.8.138:5001/api/book/history/all', 
+        completed: 'http://192.168.8.138:5001/api/book/history/completed', 
+        rejected: 'http://192.168.8.138:5001/api/book/history/rejected',
       }[status];
   
       const response = await axios.get(endpoint, {
@@ -76,7 +76,7 @@ setHistory((prev) => prev.sort((a, b) => new Date(b.createdAt) - new Date(a.crea
           serviceName: booking.serviceName,
           date: booking.date,
           time: booking.time,
-          price: `$${booking.price || '0.00'}`,
+          price: booking.price !== undefined && booking.price !== null ? `N$ ${booking.price}` : 'N$ 0.00', // ✅ Correct price formatting
           status: booking.status || 'pending',
           createdAt: booking.createdAt || new Date().toISOString(),
           providerId: booking.providerId
@@ -93,6 +93,7 @@ setHistory((prev) => prev.sort((a, b) => new Date(b.createdAt) - new Date(a.crea
                 profileImage: null,
               },
         }));
+        
   
         const sortedData = mappedData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   
@@ -144,7 +145,7 @@ const handleDeleteRejectedRecord = async (id) => {
           try {
             const token = await AsyncStorage.getItem('authToken');
             const response = await axios.put(
-              `https://service-booking-backend-eb9i.onrender.com/api/book/rejected/${id}`,
+              `http://192.168.8.138:5001/api/book/rejected/${id}`,
               {},
               { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -188,7 +189,7 @@ const handleDeleteRejectedRecord = async (id) => {
             try {
               const token = await AsyncStorage.getItem('authToken');
               const response = await axios.put(
-                `https://service-booking-backend-eb9i.onrender.com/api/book/cancel/${id}`, 
+                `http://192.168.8.138:5001/api/book/cancel/${id}`, 
                 {},
                 { headers: { Authorization: `Bearer ${token}` } }
               );
@@ -225,7 +226,7 @@ const handleDeleteRejectedRecord = async (id) => {
             try {
               const token = await AsyncStorage.getItem('authToken');
               const response = await axios.put(
-                `https://service-booking-backend-eb9i.onrender.com/api/book/completed/${id}`,
+                `http://192.168.8.138:5001/api/book/completed/${id}`,
                 {},
                 { headers: { Authorization: `Bearer ${token}` } }
               );
@@ -283,8 +284,8 @@ const handleDeleteRejectedRecord = async (id) => {
   <Image
     source={{
       uri: item?.providerId?.profileImage
-        ? `https://service-booking-backend-eb9i.onrender.com/${item.providerId.profileImage.replace(/\\/g, '/')}`
-        : 'https://service-booking-backend-eb9i.onrender.com/uploads/default-profile.png',
+        ? `http://192.168.8.138:5001/${item.providerId.profileImage.replace(/\\/g, '/')}`
+        : 'http://192.168.8.138:5001/uploads/default-profile.png',
     }}
     style={styles.providerImage}
     defaultSource={require('../assets/default-profile.png')}
@@ -443,7 +444,7 @@ const handleDeleteRejectedRecord = async (id) => {
         <Image
           source={{
             uri: selectedService?.providerId?.profileImage
-              ? `https://service-booking-backend-eb9i.onrender.com/${selectedService.providerId.profileImage.replace(/\\/g, '/')}`
+              ? `http://192.168.8.138:5001/${selectedService.providerId.profileImage.replace(/\\/g, '/')}`
               : 'https://via.placeholder.com/50',
           }}
           style={styles.providerImage1}

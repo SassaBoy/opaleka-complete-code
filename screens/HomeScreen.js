@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Platform, AppState} from "react-native";
+import { Platform, AppState, Share} from "react-native";
 
 
 import {
@@ -58,6 +58,20 @@ const HomeScreen = ({ navigation, route }) => {
   LogBox.ignoreAllLogs();
 
 
+  const handleShareApp = async () => {
+    try {
+      const message = userDetails?.role === "Provider"
+        ? "💼 I'm using Opaleka to get clients for my services! If you're a service provider, sign up and start making money with me! 💰✨ https://opaleka.com"
+        : "🔍 Need a service? Opaleka has everything you're looking for! Book trusted service providers in just a few taps. Try it out! 🚀✨ https://opaleka.com";
+  
+      await Share.share({ message });
+    } catch (error) {
+      console.error("Error sharing app:", error);
+    }
+  };
+  
+  
+
   
   const handleLogout = async () => {
     try {
@@ -105,84 +119,101 @@ const HomeScreen = ({ navigation, route }) => {
 
   const sidebarLinks = [];
 
-  if (isLoggedIn) {
-    if (userDetails?.role === "Provider") {
-      sidebarLinks.push({
-        icon: "credit-card",
-        title: "Payment Method",
-        onPress: () => {
-          setSidebarVisible(false);
-          navigation.navigate("PaymentMethodScreen");
-        },
-      });
-    }
-  
-    if (userDetails?.role === "Client") {
-      sidebarLinks.push({
-        icon: "history",
-        title: "History",
-        onPress: () => {
-          setSidebarVisible(false);
-          navigation.navigate("History");
-        },
-      });
-    }
-  
-    sidebarLinks.push(
-      {
-        icon: "help-outline",
-        title: "Support",
-        onPress: () => {
-          setSidebarVisible(false);
-          navigation.navigate("Support");
-        },
+if (isLoggedIn) {
+  if (userDetails?.role === "Provider") {
+    sidebarLinks.push({
+      icon: "credit-card",
+      title: "Pay to stay active",
+      onPress: () => {
+        setSidebarVisible(false);
+        navigation.navigate("PaymentMethodScreen");
       },
-      {
-        icon: "settings",
-        title: "Settings",
-        onPress: () => {
-          setSidebarVisible(false);
-          navigation.navigate("Settings");
-        },
-      },
-      {
-        icon: "notifications",
-        title: "Notifications",
-        onPress: () => {
-          setSidebarVisible(false);
-          navigation.navigate("NotificationsPage");
-        },
-        badge: unreadNotifications > 0 ? unreadNotifications : null,
-      },
-      {
-        icon: "logout",
-        title: "Log Out",
-        onPress: () => {
-          setSidebarVisible(false);
-          handleLogout();
-        },
-      }
-    );
-  } else {
-    sidebarLinks.push(
-      {
-        icon: "help-outline",
-        title: "Support",
-        onPress: () => {
-          setSidebarVisible(false);
-          navigation.navigate("Support");
-        },
-      },
-      {
-        icon: "login",
-        title: "Login",
-        onPress: () => {
-          setSidebarVisible(false);
-          handleLoginRedirect();
-        },
-      }
-    );
+    });
   }
+
+  if (userDetails?.role === "Client") {
+    sidebarLinks.push({
+      icon: "history",
+      title: "History",
+      onPress: () => {
+        setSidebarVisible(false);
+        navigation.navigate("History");
+      },
+    });
+  }
+
+  sidebarLinks.push(
+    {
+      icon: "help-outline",
+      title: "Support",
+      onPress: () => {
+        setSidebarVisible(false);
+        navigation.navigate("Support");
+      },
+    },
+    {
+      icon: "settings",
+      title: "Settings",
+      onPress: () => {
+        setSidebarVisible(false);
+        navigation.navigate("Settings");
+      },
+    },
+    {
+      icon: "info",
+      title: "Info",
+      onPress: () => {
+        setSidebarVisible(false);
+        navigation.navigate("SafetyFeaturesScreen");
+      },
+    },
+    {
+      icon: "notifications",
+      title: "Notifications",
+      onPress: () => {
+        setSidebarVisible(false);
+        navigation.navigate("NotificationsPage");
+      },
+      badge: unreadNotifications > 0 ? unreadNotifications : null,
+    },
+    {
+      icon: "logout",
+      title: "Log Out",
+      onPress: () => {
+        setSidebarVisible(false);
+        handleLogout();
+      },
+    }
+  );
+} else {
+  sidebarLinks.push(
+    {
+      icon: "help-outline",
+      title: "Support",
+      onPress: () => {
+        setSidebarVisible(false);
+        navigation.navigate("Support");
+      },
+    },
+    {
+      icon: "info",
+      title: "Info",
+      onPress: () => {
+        setSidebarVisible(false);
+        navigation.navigate("SafetyFeaturesScreen");
+      },
+    },
+    {
+      icon: "login",
+      title: "Login",
+      onPress: () => {
+        setSidebarVisible(false);
+        handleLoginRedirect();
+      },
+    }
+  );
+}
+
   
   const fetchCategories = async () => {
     try {
@@ -254,26 +285,69 @@ const HomeScreen = ({ navigation, route }) => {
 
     
 
-  const adverts = [
-    {
-      id: 1,
-      image: "https://th.bing.com/th/id/OIP.ottWEsnX5Vn6Fi0BkqgXRgHaDB?w=1349&h=550&rs=1&pid=ImgDetMain",
-      title: "Special Discount on Cleaning Services!",
-      description: "Get 20% off on all cleaning services this month.",
-    },
-    {
-      id: 2,
-      image: "https://www.belocooling.com/assets/sub-banner/banner-plumbing.2405211059550.jpg",
-      title: "Plumbing Emergency? We've Got You Covered!",
-      description: "Fast and reliable plumbing services available 24/7.",
-    },
-    {
-      id: 3,
-      image: "https://th.bing.com/th/id/OIP.0dRTQ7150YkOkFH89Y8CVQAAAA?w=474&h=170&rs=1&pid=ImgDetMain",
-      title: "Enhance Your Skills with Our Tutoring Services!",
-      description: "Affordable tutoring for all age groups.",
-    },
-  ];
+    const adverts = [
+      {
+        id: 1,
+        image: "https://th.bing.com/th/id/OIP.ottWEsnX5Vn6Fi0BkqgXRgHaDB?w=1349&h=550&rs=1&pid=ImgDetMain",
+        title: "Save 20%! Get a Deep Clean This Month!",
+        description: "Get 20% off on all cleaning services this month.",
+      },
+      {
+        id: 2,
+        image: "https://www.belocooling.com/assets/sub-banner/banner-plumbing.2405211059550.jpg",
+        title: "Leaky Pipes? Call a Pro 24/7!",
+        description: "Fast and reliable plumbing services available 24/7.",
+      },
+      {
+        id: 3,
+        image: "https://th.bing.com/th/id/OIP.0dRTQ7150YkOkFH89Y8CVQAAAA?w=474&h=170&rs=1&pid=ImgDetMain",
+        title: "Struggling with School? Get a Top Tutor Now!",
+        description: "Affordable tutoring for all age groups.",
+      },
+      {
+        id: 4,
+        image: "https://www.hfe-signs.co.uk/files/uploads/Product/HFECAR031.jpg",
+        title: "Get a Car Wash at Your Doorstep",
+        description: "Book a mobile car wash and keep your ride spotless.",
+      },
+      {
+        id: 5,
+        image: "https://i.pinimg.com/originals/49/f9/6e/49f96e0d81fcaf0224b434a51d6ff7de.jpg",
+        title: "Book a Makeup Artist Now!",
+        description: "Get the perfect look for any occasion with pro makeup.",
+      },
+      {
+        id: 6,
+        image: "https://skitguys.com/media/images/video/_1200x630_crop_center-center_82_none/CrystalPatternsDeepPurpleHD.jpg?mtime=1532041963",
+        title: "Hire an Event Planner",
+        description: "From birthdays to weddings, we've got you covered.",
+      },
+      {
+        id: 7,
+        image: "https://th.bing.com/th/id/OIP.ONAZCE9v_31rbaROFtT4ywHaEJ?w=626&h=351&rs=1&pid=ImgDetMain",
+        title: "Beautiful Gardens Start Here! Hire a Landscaper",
+        description: "Let experts turn your yard into a paradise.",
+      },
+      {
+        id: 8,
+        image: "https://www.naturalpigments.com/media/wysiwyg/pigments-banner_860x290_2.jpg",
+        title: "Fresh Paint, New Look! Book a Painter Today",
+        description: "Upgrade your home with expert painting services.",
+      },
+      {
+        id: 9,
+        image: "https://th.bing.com/th/id/R.776bc4e576270d2efced9bb98669c566?rik=hzK9ex2ypjGkqw&pid=ImgRaw&r=0",
+        title: "Happy Pets, Happy Life – Find a Pet Sitter!",
+        description: "Book trusted pet care professionals near you.",
+      },
+      {
+        id: 10,
+        image: "https://marketplace.canva.com/EAENu79n6PA/1/0/1600w/canva-simple-personal-trainer-linkedin-banner-ehRz-KoFA6w.jpg",
+        title: "Get Fit with a Personal Trainer!",
+        description: "Your fitness journey starts today with expert guidance.",
+      },
+    ];
+    
 
   const quickActions = [
     {
@@ -284,13 +358,13 @@ const HomeScreen = ({ navigation, route }) => {
       isDisabled: true,
     },
     {
-      title: "View Bookings",
+      title: "Check My Schedule",
       icon: "people",
       colors: ['#673AB7', '#512DA8'], // Royal purple gradient (associated with premium services)
       onPress: () => navigation.navigate("ViewBookingsPage"),
     },
     {
-      title: "View Reviews",
+      title: "See What Clients Say",
       icon: "star",
       colors: ['#FFC107', '#FFA000'], // Warm amber gradient (evokes star ratings/gold)
       onPress: () => navigation.navigate("ReviewsPage"),
@@ -634,19 +708,30 @@ const getProfileImageUrl = (profileImage) => {
     if (loading) {
       return (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text>Loading...</Text>
+          <Text>Loading, Please wait...</Text>
         </View>
       );
     }
   
-    // If logged in and role is Provider, show provider view
-    if (isLoggedIn && userDetails?.role === "Provider") {
-      return renderProviderView();
-    }
+    const isProvider = isLoggedIn && userDetails?.role === "Provider";
   
-    // In all other cases (not logged in, or logged in as client), show client view
-    return renderClientView();
+    return (
+      <View style={{ flex: 1 }}>
+        {isProvider ? renderProviderView() : renderClientView()}
+        <View style={[styles.shareContainer, { bottom: isProvider ? 210 : 230 }]}>
+          <TouchableOpacity 
+            style={styles.shareButton} 
+            onPress={handleShareApp}
+            activeOpacity={0.8}
+          >
+            <Icon name="share" size={18} color="#fff" />
+            <Text style={styles.shareText}>Tell a Friend</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   };
+  
   
   const pickImageFromGallery = async () => {
     try {
@@ -941,7 +1026,7 @@ const renderEarningsModal = () => (
     <Icon name="search" size={24} color="#666" />
     <TextInput
       style={styles.searchInput}
-      placeholder="Search for a service"
+      placeholder="I Need Help With..."
       placeholderTextColor="#666"
       value={searchQuery}
       onChangeText={handleSearch}
@@ -969,13 +1054,13 @@ const renderEarningsModal = () => (
           ))}
         </ScrollView>
       ) : (
-        <Text style={styles.noResultsText}>No matches found</Text>
+        <Text style={styles.noResultsText}>Oops! No Results. Try Another Service?</Text>
       )}
     </View>
   )}
 </View>
 <View style={styles.categoriesContainer}>
-  <Text style={styles.sectionTitle}>Categories</Text>
+  <Text style={styles.sectionTitle}>Everything You Need, in one place</Text>
   <FlatList
     data={categories}
     keyExtractor={(item) => item._id || item.category}
@@ -1036,7 +1121,8 @@ const renderEarningsModal = () => (
   />
 </View>
 
-      <Text style={styles.sectionTitle}>Highlights</Text>
+
+      <Text style={styles.sectionTitle}>Most Booked</Text>
       <View style={styles.advertContainer}>
         <Swiper
           style={styles.adSwiper}
@@ -1499,16 +1585,14 @@ const styles = StyleSheet.create({
     marginLeft: 16,
   },
   sectionTitle: {
-    fontSize: 22,
+    fontSize: 19,
     fontWeight: '700',
-    color: '#333',
+    color: '#1a237e',
     marginLeft: 25, // Increased from 20 to 25 for better alignment
     marginBottom: 18,
     letterSpacing: 0.3,
   },
   
-
-
   trialBanner: {
     margin: 16,
     padding: 16,
@@ -1716,7 +1800,42 @@ const styles = StyleSheet.create({
     fontWeight: "400", // Regular weight for a clean look
   },
   
+  shareContainer: {
+    position: 'absolute',
+    bottom: 210, // Adjust this value to ensure visibility
+    right: 20,
+    zIndex: 999,
+    alignItems: "center",
+  },
   
+  shareButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1a237e', // Refined purple shade
+   padding: 10,
+   paddingRight: 15,
+    borderRadius: 50, // More circular
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    minWidth: 140, // Ensures consistent width
+    transform: [{ translateY: 0 }], // For animation potential
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.2)', // Subtle border glow
+  },
+  shareText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15,
+    marginLeft: 10,
+    letterSpacing: 0.5, // Improved text spacing
+    textShadowColor: 'rgba(0, 0, 0, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2, // Subtle text shadow for depth
+  },
 });
 
 // Helper function to shade colors for gradients
