@@ -879,69 +879,41 @@ const pickNewBusinessImage = async () => {
             return;
         }
 
-        // **Ensure `userDetails._id` is valid**
-        if (!userDetails || !userDetails._id) {
-            throw new Error("User ID is missing. Please try logging in again.");
-        }
-
-        // **Step 1: If Changing Password, Verify & Update It First**
+        // **Step 1: Verify Old Password Before Updating**
         if (showPasswordFields) {
-            console.log("Updating password...");
-            const passwordResponse = await fetch(
-                `http://192.168.8.138:5001/api/auth/update-password/${userDetails._id}`,
+            console.log("Verifying old password...");
+            const verifyPasswordResponse = await fetch(
+                "http://192.168.8.138:5001/api/auth/verify-password",
                 {
-                    method: "PUT",
+                    method: "POST",
                     headers: {
                         "Content-Type": "application/json",
                         Authorization: `Bearer ${token}`,
                     },
                     body: JSON.stringify({
-                        oldPassword: passwordFields.oldPassword,
-                        newPassword: passwordFields.newPassword,
+                        email: editableFields.email,
+                        password: passwordFields.oldPassword,
                     }),
                 }
             );
 
-            const passwordData = await passwordResponse.json();
-
-            if (!passwordResponse.ok || !passwordData.success) {
-                console.log("Password update failed:", passwordData);
-
-                // ✅ Show error message in the UI when the old password is incorrect
+            const verifyData = await verifyPasswordResponse.json();
+            if (!verifyPasswordResponse.ok || !verifyData.success) {
+                console.log("Password verification failed:", verifyData);
                 setEditableFields((prev) => ({
                     ...prev,
-                    errors: {
-                        ...prev.errors,
-                        oldPassword: passwordData.message || "Incorrect current password.",
-                    },
+                    errors: { ...prev.errors, oldPassword: "Incorrect current password." },
                 }));
-
                 Toast.show({
                     type: "error",
-                    text1: "Password Error",
-                    text2: passwordData.message || "The current password you entered is incorrect.",
+                    text1: "Incorrect Password",
+                    text2: "The current password you entered is incorrect.",
                 });
-
-                return; // Stop execution if the password update fails
+                return;
             }
-
-            console.log("Password update successful:", passwordData);
-            Toast.show({
-                type: "success",
-                text1: "Success",
-                text2: "Password updated successfully.",
-            });
-
-            // Reset password fields after successful update
-            setPasswordFields({
-                oldPassword: "",
-                newPassword: "",
-                confirmPassword: "",
-            });
-            setShowPasswordFields(false);
         }
 
-        // **Step 2: Prepare Profile Update Data**
+        // **Step 2: Prepare Update Data**
         const updateData = {
             name: editableFields.name,
             email: editableFields.email,
@@ -964,11 +936,19 @@ const pickNewBusinessImage = async () => {
             },
         };
 
-        console.log("Sending profile update request:", updateData);
+        // **Step 3: Include Password Change if Needed**
+        if (showPasswordFields) {
+            updateData.passwordChange = {
+                oldPassword: passwordFields.oldPassword,
+                newPassword: passwordFields.newPassword,
+            };
+        }
 
-        // **Step 3: Send Profile Update Request**
+        console.log("Sending update request:", updateData);
+
+        // **Step 4: Send Update Request**
         const response = await fetch(
-            `http://192.168.8.138:5001/api/auth/update-user/${userDetails._id}`,
+            `http://192.168.8.138:5001/api/auth/update-user/${userDetails.id}`,
             {
                 method: "PUT",
                 headers: {
@@ -981,11 +961,20 @@ const pickNewBusinessImage = async () => {
 
         const data = await response.json();
         if (!response.ok || !data.success) {
-            console.log("Profile update failed:", data);
+            console.log("Update failed:", data);
             throw new Error(data.message || "Failed to update profile");
         }
 
-        console.log("Profile update successful:", data);
+        console.log("Update successful:", data);
+
+        // **Reset Password Fields After Successful Update**
+        setPasswordFields({
+            oldPassword: "",
+            newPassword: "",
+            confirmPassword: "",
+        });
+
+        setShowPasswordFields(false);
         setEditing(false);
         fetchUserDetails();
 
@@ -997,24 +986,11 @@ const pickNewBusinessImage = async () => {
 
     } catch (error) {
         console.error("Error saving changes:", error);
-
-        // ✅ Display the error in the UI
-        setEditableFields((prev) => ({
-            ...prev,
-            errors: {
-                ...prev.errors,
-                oldPassword: error.message.includes("Incorrect current password")
-                    ? "Incorrect current password."
-                    : "",
-            },
-        }));
-
         Toast.show({
             type: "error",
             text1: "Error",
             text2: error.message || "Failed to save changes.",
         });
-
         fetchUserDetails();
     }
 };
@@ -1238,18 +1214,30 @@ const styles = StyleSheet.create({
   
   },
   field: {
-    marginBottom: 20,
+    marginBottom: 24, // Increased spacing for better readability
+    marginLeft: -8, // Moves content slightly to the left for proper alignment
+    paddingHorizontal: 4, // Adds slight padding to balance spacing
   },
+  
   fieldLabel: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 8,
+    fontSize: 16, // Slightly larger for better readability
+    color: "#444", // Darker color for better contrast
+    marginBottom: 6, // Adjusted margin for better spacing
+    fontWeight: "600", // Medium weight for clearer labels
+    textTransform: "capitalize", // Ensures consistent text format
   },
+  
   fieldValue: {
-    fontSize: 16,
-    color: "#333",
-    fontWeight: "500",
+    fontSize: 18, // Slightly larger for better readability
+    color: "#222", // Darker for better contrast
+    fontWeight: "600", // Makes it stand out more
+    backgroundColor: "#F9F9F9", // Light background for emphasis
+    paddingVertical: 8, // Adds padding for better spacing
+    paddingHorizontal: 12,
+    borderRadius: 8, // Adds slight rounding for a softer look
+    overflow: "hidden", // Ensures styling is clean
   },
+  
   input: {
     borderWidth: 1,
     borderColor: "#E0E0E0",
@@ -1260,7 +1248,7 @@ const styles = StyleSheet.create({
   },
   section: {
     marginVertical: 16,
-    paddingHorizontal: 16,
+    paddingHorizontal: -5, // Moves content slightly to the left
   },
   sectionTitle: {
     fontSize: 20, // Slightly larger for better readability
