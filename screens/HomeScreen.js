@@ -288,7 +288,7 @@ if (isLoggedIn) {
     const adverts = [
       {
         id: 1,
-        image: "https://th.bing.com/th/id/OIP.ottWEsnX5Vn6Fi0BkqgXRgHaDB?w=1349&h=550&rs=1&pid=ImgDetMain",
+        image: "https://img.freepik.com/free-vector/cleaning-service-horizontal-banner-template-design_23-2150879463.jpg",
         title: "Save 20%! Get a Deep Clean This Month!",
         description: "Get 20% off on all cleaning services this month.",
       },
@@ -1135,7 +1135,7 @@ const renderEarningsModal = () => (
         >
           {adverts.map((ad) => (
             <View key={ad.id} style={styles.adCard}>
-              <Image source={{ uri: ad.image }} style={styles.adImage} />
+              <Image source={{ uri: ad.image, cache: 'force-cache' }} style={styles.adImage} />
               <View style={styles.adContent}>
                 <Text style={styles.adTitle}>{ad.title}</Text>
                 <Text style={styles.adDescription}>{ad.description}</Text>

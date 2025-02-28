@@ -229,7 +229,8 @@ const IndividualCleaningScreen = ({ navigation, route }) => {
       <View style={styles.header}>
         <Image
           source={{
-            uri: serviceDetails?.imageUrl || 'https://via.placeholder.com/300',
+            uri: serviceDetails?.imageUrl  || 'https://via.placeholder.com/300',
+            cache: 'force-cache',
           }}
           style={styles.headerImage}
         />

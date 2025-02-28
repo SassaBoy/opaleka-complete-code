@@ -37,12 +37,12 @@ const SafetyFeaturesScreen = ({ navigation }) => {
       icon: 'card'
     },
     {
-      title: 'Real-time Tracking',
-      description: 'Know exactly when your service provider will arrive with live location tracking. Get notifications and estimated arrival times for better planning.',
+      title: 'Track Your Booking',
+      description: 'Stay updated on your booking status at any time. Get real-time updates, track service progress, and receive notifications from within the app.',
       image: require('../assets/tracking.png'),
       gradient: ['#4CAF50', '#1B5E20'],
-      icon: 'location'
-    },
+      icon: 'time'
+    },   
     {
       title: 'Emergency Assistance',
       description: 'Access our 24/7 emergency support team with a single tap. Get immediate help for any situation with our dedicated customer service representatives.',

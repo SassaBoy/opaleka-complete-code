@@ -6,7 +6,7 @@
     "description": "Opaleka - Service Booking everywhere in Namibia",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/opalekalogo1-removebg.png",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -23,7 +23,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/opalekalogo1-removebg.png",
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#1a237e"
       },
       "package": "com.gewersdeon.opaleka"
