@@ -2359,7 +2359,7 @@ exports.unpaidReminder = async (req, res) => {
   }
 };
 
-cron.schedule("0 8 * * 3", async () => {  // ✅ Runs at 08:00 UTC (which is 10:00 AM in Namibia)
+cron.schedule("0 8 * * 1", async () => {  // ✅ Runs at 08:00 UTC (which is 10:00 AM in Namibia)
   try {
     console.log("📩 Sending weekly unpaid reminders...");
 
