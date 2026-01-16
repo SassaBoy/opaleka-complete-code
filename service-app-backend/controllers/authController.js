@@ -414,23 +414,52 @@ exports.uploadDocuments = async (req, res) => {
   try {
     const { email } = req.body;
 
+    console.log("📥 Upload request received");
+    console.log("Email:", email);
+    console.log("File:", req.file);
+
     // Validate email
     if (!email) {
-      return res.status(400).json({ success: false, message: "Email is required." });
+      console.error("❌ Email missing");
+      return res.status(400).json({ 
+        success: false, 
+        message: "Email is required." 
+      });
+    }
+
+    // ✅ Check if file is uploaded FIRST (before DB queries)
+    if (!req.file) {
+      console.error("❌ No file uploaded");
+      return res.status(400).json({
+        success: false,
+        message: "No file uploaded. Please select a document.",
+      });
     }
 
     // Check if the user exists and is a Provider
     const user = await User.findOne({ email });
-    if (!user || user.role !== "Provider") {
-      return res.status(400).json({
+    if (!user) {
+      console.error("❌ User not found:", email);
+      return res.status(404).json({
         success: false,
-        message: "Invalid email or user is not a Provider.",
+        message: "User not found.",
       });
     }
+
+    if (user.role !== "Provider") {
+      console.error("❌ User is not a Provider:", user.role);
+      return res.status(400).json({
+        success: false,
+        message: "User is not a Provider.",
+      });
+    }
+
+    console.log("✅ User found:", user.name);
 
     // Check if the profile is completed
     const completeProfile = await CompleteProfile.findOne({ userId: user._id });
     if (!completeProfile) {
+      console.error("❌ Profile not completed");
       return res.status(400).json({
         success: false,
         message: "Please complete your profile before uploading documents.",
@@ -438,13 +467,7 @@ exports.uploadDocuments = async (req, res) => {
       });
     }
 
-    // ✅ Check if a file is uploaded
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: "No file uploaded. Please select a document.",
-      });
-    }
+    console.log("✅ Profile found");
 
     // Normalize document path
     const document = {
@@ -461,10 +484,14 @@ exports.uploadDocuments = async (req, res) => {
         userId: user._id,
         documents: document,
       });
+      console.log("📝 Creating new provider details");
     } else {
       providerDetails.documents = document;
+      console.log("📝 Updating existing provider details");
     }
+    
     await providerDetails.save();
+    console.log("✅ Provider details saved");
 
     // ✅ Fetch user & profile details for the email
     const profileData = {
@@ -482,10 +509,12 @@ exports.uploadDocuments = async (req, res) => {
     const transporter = nodemailer.createTransport({
       service: "Gmail",
       auth: {
-        user: process.env.EMAIL_USER, // Your email
-        pass: process.env.EMAIL_PASS, // Your email password
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
       },
     });
+
+    console.log("📧 Sending notification email...");
 
     // ✅ Email content
     const mailOptions = {
@@ -503,7 +532,7 @@ exports.uploadDocuments = async (req, res) => {
           <p><strong>Years of Experience:</strong> ${profileData.yearsOfExperience}</p>
           <p><strong>Services Offered:</strong> ${profileData.services}</p>
           <p><strong>Description:</strong> ${profileData.description}</p>
-          <p style="margin-top: 20px; font-size: 14px; color: #555;">The attached document contains the applicant’s verification file.</p>
+          <p style="margin-top: 20px; font-size: 14px; color: #555;">The attached document contains the applicant's verification file.</p>
         </div>
       `,
       attachments: [
@@ -514,9 +543,17 @@ exports.uploadDocuments = async (req, res) => {
       ],
     };
 
-    await transporter.sendMail(mailOptions);
+    // Send email (with error handling)
+    try {
+      await transporter.sendMail(mailOptions);
+      console.log("✅ Email sent successfully");
+    } catch (emailError) {
+      console.error("⚠️ Email failed but continuing:", emailError.message);
+      // Don't fail the whole request if email fails
+    }
 
-    // ✅ Return only the document in response
+    // ✅ Return success response
+    console.log("✅ Upload completed successfully");
     res.status(200).json({
       success: true,
       message: "Document uploaded successfully.",
@@ -524,11 +561,16 @@ exports.uploadDocuments = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Error uploading document:", error);
-    res.status(500).json({ success: false, message: "Failed to upload document." });
+    console.error("❌ Error uploading document:", error);
+    
+    // More detailed error response
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to upload document.",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
-
 
 
 
